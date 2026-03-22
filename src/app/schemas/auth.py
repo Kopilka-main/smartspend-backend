@@ -39,3 +39,12 @@ class UserResponse(CamelModel):
     theme: str
     sidebar_collapsed: bool
     joined_at: datetime
+
+
+class AuthResponse(CamelModel):
+    user: UserResponse
+    tokens: TokenPair
+
+
+class RefreshResponse(CamelModel):
+    tokens: TokenPair

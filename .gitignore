@@ -6,7 +6,6 @@ dist/
 build/
 .eggs/
 *.egg
-*.egg-info/
 .env
 .venv/
 venv/
@@ -15,4 +14,3 @@ venv/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-alembic/versions/*.pyc
