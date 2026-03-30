@@ -44,3 +44,20 @@ async def get_current_user(
         )
 
     return user
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    session: AsyncSession = Depends(get_session),
+) -> User | None:
+    if credentials is None:
+        return None
+    payload = decode_token(credentials.credentials)
+    if payload is None or payload.get("type") != "access":
+        return None
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (KeyError, ValueError):
+        return None
+    repo = UserRepository(session)
+    return await repo.get_by_id(user_id)

@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from src.app.core.config import settings
 from src.app.core.database import Base
-from src.app.models.user import User  # noqa: F401
-from src.app.models.user_finance import UserFinance  # noqa: F401
+from src.app.models import *  # noqa: F401,F403 — ensure all models are registered
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
@@ -20,6 +19,7 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -49,6 +49,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
     asyncio.run(run_async_migrations())
 
 

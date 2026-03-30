@@ -18,3 +18,9 @@ class ApiResponse(CamelModel, Generic[T]):
     data: T | None = None
     error: str | None = None
     meta: dict[str, Any] | None = None
+
+
+class PaginationMeta(CamelModel):
+    total: int
+    limit: int
+    offset: int

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import EmailStr, Field
 
@@ -27,6 +28,15 @@ class TokenPair(CamelModel):
     token_type: str = "Bearer"
 
 
+class UserFinanceInline(CamelModel):
+    income: int = 0
+    housing: int = 0
+    credit: int = 0
+    credit_months: int = 0
+    capital: int = 0
+    emo_rate: Decimal = Decimal("0.05")
+
+
 class UserResponse(CamelModel):
     id: uuid.UUID
     email: str
@@ -39,6 +49,7 @@ class UserResponse(CamelModel):
     theme: str
     sidebar_collapsed: bool
     joined_at: datetime
+    finance: UserFinanceInline | None = None
 
 
 class AuthResponse(CamelModel):
@@ -48,3 +59,17 @@ class AuthResponse(CamelModel):
 
 class RefreshResponse(CamelModel):
     tokens: TokenPair
+
+
+class ForgotPasswordRequest(CamelModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(CamelModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordRequest(CamelModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)

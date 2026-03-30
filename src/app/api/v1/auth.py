@@ -6,14 +6,17 @@ from src.app.core.dependencies import get_current_user
 from src.app.models.user import User
 from src.app.schemas.auth import (
     AuthResponse,
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     RefreshRequest,
     RefreshResponse,
     RegisterRequest,
+    ResetPasswordRequest,
     UserResponse,
 )
 from src.app.schemas.base import ApiResponse
-from src.app.services.auth import AuthService
+from src.app.services.auth import AuthService, _user_to_response
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,4 +49,25 @@ async def logout(_: User = Depends(get_current_user)):
 
 @router.get("/me", response_model=ApiResponse[UserResponse])
 async def me(user: User = Depends(get_current_user)):
-    return ApiResponse(data=UserResponse.model_validate(user))
+    return ApiResponse(data=_user_to_response(user))
+
+
+@router.post("/change-password", response_model=ApiResponse[None])
+async def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    service = AuthService(session)
+    await service.change_password(user, body)
+    return ApiResponse(data=None)
+
+
+@router.post("/forgot-password", response_model=ApiResponse[None])
+async def forgot_password(body: ForgotPasswordRequest):
+    return ApiResponse(data=None)
+
+
+@router.post("/reset-password", response_model=ApiResponse[None])
+async def reset_password(body: ResetPasswordRequest):
+    return ApiResponse(data=None)

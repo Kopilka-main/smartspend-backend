@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.user import User
@@ -25,3 +25,14 @@ class UserRepository:
         await self._session.flush()
         await self._session.refresh(user)
         return user
+
+    async def update_fields(self, user_id: uuid.UUID, **kwargs) -> None:
+        stmt = update(User).where(User.id == user_id).values(**kwargs)
+        await self._session.execute(stmt)
+
+    async def update_finance(self, user_id: uuid.UUID, **kwargs) -> None:
+        stmt = update(UserFinance).where(UserFinance.user_id == user_id).values(**kwargs)
+        await self._session.execute(stmt)
+
+    async def get_finance(self, user_id: uuid.UUID) -> UserFinance | None:
+        return await self._session.get(UserFinance, user_id)

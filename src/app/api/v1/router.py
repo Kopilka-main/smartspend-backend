@@ -1,6 +1,29 @@
+"""V1 API router — aggregates all sub-routers."""
+
 from fastapi import APIRouter
 
+from src.app.api.v1.articles import router as articles_router
 from src.app.api.v1.auth import router as auth_router
+from src.app.api.v1.catalog import router as catalog_router
+from src.app.api.v1.envelopes import router as envelopes_router
+from src.app.api.v1.feed import router as feed_router
+from src.app.api.v1.follows import router as follows_router
+from src.app.api.v1.inventory import router as inventory_router
+from src.app.api.v1.notifications import router as notifications_router
+from src.app.api.v1.reactions import router as reactions_router
+from src.app.api.v1.reference import router as reference_router
+from src.app.api.v1.users import router as users_router
 
 api_router = APIRouter(prefix="/api/v1")
+
 api_router.include_router(auth_router)
+api_router.include_router(users_router)
+api_router.include_router(catalog_router)
+api_router.include_router(articles_router)
+api_router.include_router(inventory_router)
+api_router.include_router(envelopes_router)
+api_router.include_router(feed_router)
+api_router.include_router(follows_router)
+api_router.include_router(reactions_router)
+api_router.include_router(notifications_router)
+api_router.include_router(reference_router)

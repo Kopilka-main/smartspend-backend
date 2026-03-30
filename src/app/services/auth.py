@@ -14,12 +14,46 @@ from src.app.models.enums import UserStatus
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
 from src.app.repositories.user import UserRepository
-from src.app.schemas.auth import LoginRequest, RegisterRequest, TokenPair, UserResponse
+from src.app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenPair,
+    UserFinanceInline,
+    UserResponse,
+)
 
 
 def _build_initials(display_name: str) -> str:
     parts = display_name.strip().split()
     return "".join(p[0] for p in parts if p)[:2].upper() or "??"
+
+
+def _user_to_response(user: User) -> UserResponse:
+    finance_data = None
+    if user.finance:
+        finance_data = UserFinanceInline(
+            income=user.finance.income,
+            housing=user.finance.housing,
+            credit=user.finance.credit,
+            credit_months=user.finance.credit_months,
+            capital=user.finance.capital,
+            emo_rate=user.finance.emo_rate,
+        )
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        initials=user.initials,
+        color=user.color,
+        bio=user.bio,
+        avatar_url=user.avatar_url,
+        status=user.status,
+        theme=user.theme,
+        sidebar_collapsed=user.sidebar_collapsed,
+        joined_at=user.joined_at,
+        finance=finance_data,
+    )
 
 
 class AuthService:
@@ -46,7 +80,7 @@ class AuthService:
         await self._session.commit()
 
         tokens = self._issue_tokens(user.id)
-        return UserResponse.model_validate(user), tokens
+        return _user_to_response(user), tokens
 
     async def login(self, data: LoginRequest) -> tuple[UserResponse, TokenPair]:
         user = await self._repo.get_by_email(data.email)
@@ -66,7 +100,7 @@ class AuthService:
             )
 
         tokens = self._issue_tokens(user.id)
-        return UserResponse.model_validate(user), tokens
+        return _user_to_response(user), tokens
 
     async def refresh(self, refresh_token: str) -> TokenPair:
         payload = decode_token(refresh_token)
@@ -89,6 +123,16 @@ class AuthService:
             )
 
         return self._issue_tokens(user.id)
+
+    async def change_password(self, user: User, data: ChangePasswordRequest) -> None:
+        if not verify_password(data.current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
+            )
+        await self._repo.update_fields(
+            user.id, password_hash=hash_password(data.new_password)
+        )
+        await self._session.commit()
 
     @staticmethod
     def _issue_tokens(user_id: uuid.UUID) -> TokenPair:
