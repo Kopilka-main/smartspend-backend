@@ -118,6 +118,7 @@ class ArticleService:
             await self._repo.add_blocks(blocks)
 
         await self._session.commit()
+        self._session.expire_all()
         return await self.get_article(article_id)
 
     async def update_article(
@@ -162,6 +163,7 @@ class ArticleService:
             await self._repo.add_blocks(blocks)
 
         await self._session.commit()
+        self._session.expire_all()
         return await self.get_article(article_id)
 
     async def publish_article(self, article_id: str, user: User) -> ArticleResponse:
@@ -178,6 +180,7 @@ class ArticleService:
         )
         await self._session.execute(stmt)
         await self._session.commit()
+        self._session.expire_all()
         return await self.get_article(article_id)
 
     async def delete_article(self, article_id: str, user: User) -> None:

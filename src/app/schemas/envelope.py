@@ -24,6 +24,15 @@ class EnvelopeResponse(CamelModel):
     created_at: datetime
     updated_at: datetime
 
+    @classmethod
+    def from_orm_obj(cls, e) -> "EnvelopeResponse":
+        return cls(
+            id=e.id, user_id=str(e.user_id), category_id=e.category_id,
+            set_id=e.set_id, name=e.name, items_count=e.items_count,
+            amount=e.amount, envelope_type=e.envelope_type,
+            period=e.period, created_at=e.created_at, updated_at=e.updated_at,
+        )
+
 
 class EnvelopeCreate(CamelModel):
     category_id: str = Field(min_length=1, max_length=20)

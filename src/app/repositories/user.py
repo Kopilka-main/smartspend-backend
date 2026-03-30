@@ -21,6 +21,8 @@ class UserRepository:
 
     async def create(self, user: User, finance: UserFinance) -> User:
         self._session.add(user)
+        await self._session.flush()
+        finance.user_id = user.id
         self._session.add(finance)
         await self._session.flush()
         await self._session.refresh(user)

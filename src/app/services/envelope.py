@@ -27,7 +27,7 @@ class EnvelopeService:
 
     async def list_envelopes(self, user_id: uuid.UUID) -> list[EnvelopeResponse]:
         envelopes = await self._repo.list_by_user(user_id)
-        return [EnvelopeResponse.model_validate(e) for e in envelopes]
+        return [EnvelopeResponse.from_orm_obj(e) for e in envelopes]
 
     async def add_set_to_profile(self, user: User, set_id: str) -> EnvelopeResponse:
         existing = await self._repo.find_by_user_set(user.id, set_id)
@@ -84,7 +84,7 @@ class EnvelopeService:
         )
         await self._session.execute(stmt)
         await self._session.commit()
-        return EnvelopeResponse.model_validate(envelope)
+        return EnvelopeResponse.from_orm_obj(envelope)
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
         envelope = await self._repo.find_by_user_set(user.id, set_id)

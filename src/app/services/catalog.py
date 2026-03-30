@@ -24,7 +24,7 @@ from src.app.schemas.user import AuthorInfo
 
 def _compute_monthly(base_price: Decimal, qty: Decimal, period_years: Decimal) -> Decimal:
     if period_years and period_years > 0:
-        return (base_price * qty) / (period_years * 12)
+        return round((base_price * qty) / (period_years * 12), 2)
     return Decimal("0")
 
 
@@ -136,6 +136,7 @@ class CatalogService:
             await self._session.execute(stmt)
 
         await self._session.commit()
+        self._session.expire_all()
         return await self.get_set(set_id)
 
     async def update_set(self, set_id: str, user: User, data: SetUpdate) -> SetResponse:
@@ -180,6 +181,7 @@ class CatalogService:
             await self._session.execute(stmt)
 
         await self._session.commit()
+        self._session.expire_all()
         return await self.get_set(set_id)
 
     async def hide_set(self, set_id: str, user: User) -> None:

@@ -26,11 +26,11 @@ class InventoryItem(Base):
     __tablename__ = "inventory_items"
     __table_args__ = (
         CheckConstraint(
-            "type <> 'consumable' OR (qty IS NOT NULL AND daily_use IS NOT NULL AND last_bought IS NOT NULL)",
+            "paused = true OR type <> 'consumable' OR (qty IS NOT NULL AND daily_use IS NOT NULL AND last_bought IS NOT NULL)",
             name="chk_consumable",
         ),
         CheckConstraint(
-            "type <> 'wear' OR wear_life_weeks IS NOT NULL",
+            "paused = true OR type <> 'wear' OR wear_life_weeks IS NOT NULL",
             name="chk_wear",
         ),
     )
