@@ -1,10 +1,7 @@
-"""Reference data endpoints (inventory groups, envelope categories)."""
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.core.database import get_session
+from src.app.core.dependencies import Session
 from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.inventory_group import InventoryGroup
 from src.app.schemas.base import ApiResponse
@@ -13,8 +10,7 @@ router = APIRouter(prefix="/reference", tags=["reference"])
 
 
 @router.get("/envelope-categories", response_model=ApiResponse[list])
-async def list_envelope_categories(session: AsyncSession = Depends(get_session)):
-    """List all envelope categories."""
+async def list_envelope_categories(session: Session):
     stmt = select(EnvelopeCategory).order_by(EnvelopeCategory.id)
     result = await session.execute(stmt)
     cats = result.scalars().all()
@@ -24,8 +20,7 @@ async def list_envelope_categories(session: AsyncSession = Depends(get_session))
 
 
 @router.get("/inventory-groups", response_model=ApiResponse[list])
-async def list_inventory_groups(session: AsyncSession = Depends(get_session)):
-    """List all inventory groups."""
+async def list_inventory_groups(session: Session):
     stmt = select(InventoryGroup).order_by(InventoryGroup.id)
     result = await session.execute(stmt)
     groups = result.scalars().all()

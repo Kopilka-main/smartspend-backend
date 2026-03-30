@@ -1,4 +1,5 @@
 import uuid
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -61,3 +62,8 @@ async def get_optional_user(
         return None
     repo = UserRepository(session)
     return await repo.get_by_id(user_id)
+
+
+Session = Annotated[AsyncSession, Depends(get_session)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
