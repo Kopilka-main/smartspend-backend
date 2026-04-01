@@ -1,0 +1,24 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: kopilka.i20h.ru
+          username: goncharov
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd ~/projects/SmartSpend
+            git pull origin main
+            source .venv/bin/activate
+            pip install -e . --quiet
+            python3 -m alembic upgrade head
+            echo "${{ secrets.SERVER_PASSWORD }}" | sudo -S systemctl restart smartspend
+            echo "Deploy complete: $(date)"
