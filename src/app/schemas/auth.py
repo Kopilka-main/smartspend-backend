@@ -47,7 +47,6 @@ class UserResponse(CamelModel):
     avatar_url: str | None = None
     status: str
     theme: str
-    sidebar_collapsed: bool
     joined_at: datetime
     finance: UserFinanceInline | None = None
 

@@ -50,7 +50,6 @@ def _user_to_response(user: User) -> UserResponse:
         avatar_url=user.avatar_url,
         status=user.status,
         theme=user.theme,
-        sidebar_collapsed=user.sidebar_collapsed,
         joined_at=user.joined_at,
         finance=finance_data,
     )

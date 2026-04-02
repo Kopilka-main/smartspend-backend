@@ -33,7 +33,6 @@ class ProfileUpdate(CamelModel):
 
 class SettingsUpdate(CamelModel):
     theme: str | None = None
-    sidebar_collapsed: bool | None = None
 
 
 class AuthorInfo(CamelModel):

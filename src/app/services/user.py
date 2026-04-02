@@ -61,8 +61,6 @@ class UserService:
         updates: dict = {}
         if data.theme is not None:
             updates["theme"] = data.theme
-        if data.sidebar_collapsed is not None:
-            updates["sidebar_collapsed"] = data.sidebar_collapsed
         if updates:
             await self._repo.update_fields(user.id, **updates)
             await self._session.commit()
