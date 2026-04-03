@@ -1,0 +1,33 @@
+services:
+  smartspend-api:
+    build: .
+    container_name: smartspend-api
+    restart: always
+    ports:
+      - "127.0.0.1:8001:8001"
+    env_file:
+      - .env.docker
+    depends_on:
+      smartspend-db:
+        condition: service_healthy
+
+  smartspend-db:
+    image: postgres:16-alpine
+    container_name: smartspend-db
+    restart: always
+    environment:
+      POSTGRES_DB: smartspend
+      POSTGRES_USER: smartspend
+      POSTGRES_PASSWORD: SmartSpend2026Prod
+    volumes:
+      - smartspend_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartspend -d smartspend"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  smartspend_pgdata:
