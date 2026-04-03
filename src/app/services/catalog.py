@@ -117,7 +117,7 @@ class CatalogService:
 
     async def create_set(self, user: User, data: SetCreate) -> SetResponse:
         set_id = f"u_{int(time.time() * 1000)}"
-        source = SetSource.OWN if data.is_private else SetSource.COMMUNITY
+        source = SetSource.OWN
 
         s = Set(
             id=set_id, source=source.value, category_id=data.category_id,
