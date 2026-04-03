@@ -15,10 +15,8 @@ jobs:
           username: goncharov
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd ~/projects/SmartSpend
+            cd /project/SmartSpend
             git pull origin main
-            source .venv/bin/activate
-            pip install -e . --quiet
-            python3 -m alembic upgrade head
-            echo "${{ secrets.SERVER_PASSWORD }}" | sudo -S systemctl restart smartspend
+            docker compose up -d --build
+            docker exec smartspend-api python -m alembic upgrade head
             echo "Deploy complete: $(date)"
