@@ -23,19 +23,48 @@ from src.app.schemas.user import AuthorInfo
 
 
 def _compute_monthly(item) -> Decimal:
-    """Рассчитать месячную стоимость позиции."""
-    if hasattr(item, 'base_price') and item.base_price and hasattr(item, 'period_years') and item.period_years:
-        qty = item.qty if item.qty else Decimal("1")
-        return round((item.base_price * qty) / (item.period_years * 12), 2)
-    if hasattr(item, 'price') and item.price:
-        if hasattr(item, 'wear_life_weeks') and item.wear_life_weeks and item.item_type == "wear":
-            months = Decimal(item.wear_life_weeks) / Decimal("4.33")
-            if months > 0:
-                return round(Decimal(item.price) / months, 2)
-        if hasattr(item, 'daily_use') and item.daily_use and item.qty and item.item_type == "consumable":
-            days_supply = item.qty / item.daily_use
-            if days_supply > 0:
-                return round(Decimal(item.price) / (days_supply / Decimal("30.44")), 2)
+    """Рассчитать месячную стоимость владения позицией.
+
+    wear: price / (wearLifeWeeks / 4.33)
+    consumable: если есть qty и dailyUse, то price * (dailyUse * 30.44 / qty)
+                иначе просто price (считаем что покупается раз в месяц)
+    fallback на basePrice/periodYears если заданы.
+    """
+    price = getattr(item, 'price', 0) or 0
+    item_type = getattr(item, 'item_type', 'consumable')
+
+    # wear: цена / срок в месяцах
+    if item_type == "wear":
+        weeks = getattr(item, 'wear_life_weeks', None)
+        if weeks and weeks > 0:
+            months = Decimal(weeks) / Decimal("4.33")
+            return round(Decimal(price) / months, 2)
+        # fallback на basePrice/periodYears
+        bp = getattr(item, 'base_price', None)
+        py = getattr(item, 'period_years', None)
+        if bp and py and py > 0:
+            return round(Decimal(bp) / (Decimal(py) * 12), 2)
+        return Decimal("0")
+
+    # consumable: если есть расход в день и объем, считаем
+    daily = getattr(item, 'daily_use', None)
+    qty = getattr(item, 'qty', None)
+    if daily and qty and daily > 0 and qty > 0:
+        days_supply = Decimal(str(qty)) / Decimal(str(daily))
+        if days_supply > 0:
+            return round(Decimal(price) / (days_supply / Decimal("30.44")), 2)
+
+    # fallback на basePrice/periodYears
+    bp = getattr(item, 'base_price', None)
+    py = getattr(item, 'period_years', None)
+    if bp and py and py > 0:
+        q = Decimal(str(qty)) if qty else Decimal("1")
+        return round((Decimal(bp) * q) / (Decimal(py) * 12), 2)
+
+    # последний fallback: просто price как месячный расход
+    if price > 0:
+        return Decimal(price)
+
     return Decimal("0")
 
 
@@ -155,16 +184,10 @@ class CatalogService:
             refreshed = await self._repo.get_by_id(set_id)
             total = sum(int(_compute_monthly(i)) for i in (refreshed.items or []))
 
-        if total > 0:
-            stmt = sa_update(Set).where(Set.id == set_id).values(
-                amount=total, amount_label="руб / месяц"
-            )
-            await self._session.execute(stmt)
-        else:
-            stmt = sa_update(Set).where(Set.id == set_id).values(
-                amount=0, amount_label="руб / месяц"
-            )
-            await self._session.execute(stmt)
+        stmt = sa_update(Set).where(Set.id == set_id).values(
+            amount=total, amount_label="руб / месяц"
+        )
+        await self._session.execute(stmt)
 
         await self._session.commit()
         self._session.expire_all()
