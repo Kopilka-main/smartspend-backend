@@ -35,12 +35,12 @@ class CatalogRepository:
 
         if category_id and category_id != "all":
             base = base.where(Set.category_id == category_id)
-        if source:
+        if source and source != "all":
             base = base.where(Set.source == source)
         if set_type and set_type != "all":
             base = base.where(Set.set_type == set_type)
-        if search:
-            pattern = f"%{search}%"
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
             base = base.where(Set.title.ilike(pattern) | Set.description.ilike(pattern))
 
         count_q = select(func.count()).select_from(
