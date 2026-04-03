@@ -11,22 +11,32 @@ class SetItemResponse(CamelModel):
     id: int
     name: str
     note: str | None = None
-    qty: Decimal
-    unit: str
-    base_price: Decimal
-    period_years: Decimal
     item_type: str
+    price: int = 0
+    qty: Decimal | None = None
+    unit: str | None = None
+    daily_use: Decimal | None = None
+    wear_life_weeks: int | None = None
+    purchase_date: date | None = None
+    planned_price: int | None = None
+    base_price: Decimal | None = None
+    period_years: Decimal | None = None
     monthly_cost: Decimal = Decimal("0")
 
 
 class SetItemCreate(CamelModel):
     name: str = Field(min_length=1, max_length=200)
     note: str | None = Field(None, max_length=200)
-    qty: Decimal = Field(gt=0)
-    unit: str = Field(default="шт", max_length=20)
-    base_price: Decimal = Field(gt=0)
-    period_years: Decimal = Field(gt=0)
     item_type: str = Field(default="consumable")
+    price: int = Field(default=0, ge=0)
+    qty: Decimal | None = Field(None, gt=0)
+    unit: str | None = Field(None, max_length=20)
+    daily_use: Decimal | None = Field(None, gt=0)
+    wear_life_weeks: int | None = Field(None, gt=0)
+    purchase_date: date | None = None
+    planned_price: int | None = Field(None, ge=0)
+    base_price: Decimal | None = Field(None, gt=0)
+    period_years: Decimal | None = Field(None, gt=0)
 
 
 class SetResponse(CamelModel):

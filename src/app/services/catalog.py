@@ -22,9 +22,20 @@ from src.app.schemas.catalog import (
 from src.app.schemas.user import AuthorInfo
 
 
-def _compute_monthly(base_price: Decimal, qty: Decimal, period_years: Decimal) -> Decimal:
-    if period_years and period_years > 0:
-        return round((base_price * qty) / (period_years * 12), 2)
+def _compute_monthly(item) -> Decimal:
+    """Рассчитать месячную стоимость позиции."""
+    if hasattr(item, 'base_price') and item.base_price and hasattr(item, 'period_years') and item.period_years:
+        qty = item.qty if item.qty else Decimal("1")
+        return round((item.base_price * qty) / (item.period_years * 12), 2)
+    if hasattr(item, 'price') and item.price:
+        if hasattr(item, 'wear_life_weeks') and item.wear_life_weeks and item.item_type == "wear":
+            months = Decimal(item.wear_life_weeks) / Decimal("4.33")
+            if months > 0:
+                return round(Decimal(item.price) / months, 2)
+        if hasattr(item, 'daily_use') and item.daily_use and item.qty and item.item_type == "consumable":
+            days_supply = item.qty / item.daily_use
+            if days_supply > 0:
+                return round(Decimal(item.price) / (days_supply / Decimal("30.44")), 2)
     return Decimal("0")
 
 
@@ -46,10 +57,13 @@ def _author_info(user) -> AuthorInfo | None:
 def _set_to_response(s: Set) -> SetResponse:
     items = [
         SetItemResponse(
-            id=i.id, name=i.name, note=i.note, qty=i.qty, unit=i.unit,
+            id=i.id, name=i.name, note=i.note, item_type=i.item_type,
+            price=i.price or 0,
+            qty=i.qty, unit=i.unit, daily_use=i.daily_use,
+            wear_life_weeks=i.wear_life_weeks, purchase_date=i.purchase_date,
+            planned_price=i.planned_price,
             base_price=i.base_price, period_years=i.period_years,
-            item_type=i.item_type,
-            monthly_cost=_compute_monthly(i.base_price, i.qty, i.period_years),
+            monthly_cost=_compute_monthly(i),
         )
         for i in (s.items or [])
     ]
@@ -117,17 +131,23 @@ class CatalogService:
             set_items = [
                 SetItem(
                     set_id=set_id, name=item.name, note=item.note,
-                    qty=item.qty, unit=item.unit, base_price=item.base_price,
-                    period_years=item.period_years, item_type=item.item_type,
+                    item_type=item.item_type, price=item.price,
+                    qty=item.qty, unit=item.unit, daily_use=item.daily_use,
+                    wear_life_weeks=item.wear_life_weeks,
+                    purchase_date=item.purchase_date,
+                    planned_price=item.planned_price,
+                    base_price=item.base_price, period_years=item.period_years,
                 )
                 for item in data.items
             ]
             await self._repo.add_items(set_items)
 
-        total = sum(
-            int(_compute_monthly(i.base_price, i.qty, i.period_years))
-            for i in data.items
-        ) if data.items else 0
+        total = sum(int(_compute_monthly(i)) for i in (s.items or [])) if False else 0
+        if data.items:
+            await self._session.commit()
+            self._session.expire_all()
+            refreshed = await self._repo.get_by_id(set_id)
+            total = sum(int(_compute_monthly(i)) for i in (refreshed.items or []))
 
         if total > 0:
             stmt = sa_update(Set).where(Set.id == set_id).values(
@@ -170,13 +190,20 @@ class CatalogService:
             new_items = [
                 SetItem(
                     set_id=set_id, name=item.name, note=item.note,
-                    qty=item.qty, unit=item.unit, base_price=item.base_price,
-                    period_years=item.period_years, item_type=item.item_type,
+                    item_type=item.item_type, price=item.price,
+                    qty=item.qty, unit=item.unit, daily_use=item.daily_use,
+                    wear_life_weeks=item.wear_life_weeks,
+                    purchase_date=item.purchase_date,
+                    planned_price=item.planned_price,
+                    base_price=item.base_price, period_years=item.period_years,
                 )
                 for item in data.items
             ]
             await self._repo.add_items(new_items)
-            total = sum(int(_compute_monthly(i.base_price, i.qty, i.period_years)) for i in data.items)
+            await self._session.flush()
+            self._session.expire_all()
+            refreshed = await self._repo.get_by_id(set_id)
+            total = sum(int(_compute_monthly(i)) for i in (refreshed.items or []))
             stmt = sa_update(Set).where(Set.id == set_id).values(amount=total, amount_label="руб / месяц")
             await self._session.execute(stmt)
 
