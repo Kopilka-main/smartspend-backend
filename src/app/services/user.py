@@ -48,6 +48,13 @@ class UserService:
         if data.display_name is not None:
             updates["display_name"] = data.display_name
             updates["initials"] = _build_initials(data.display_name)
+        if data.username is not None:
+            existing = await self._repo.get_by_username(data.username)
+            if existing and existing.id != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
+                )
+            updates["username"] = data.username
         if data.bio is not None:
             updates["bio"] = data.bio
         if updates:
@@ -157,6 +164,7 @@ class UserService:
         return UserPublicResponse(
             id=user.id,
             display_name="👻 Привидение" if is_ghost else user.display_name,
+            username=None if is_ghost else user.username,
             initials="👻" if is_ghost else user.initials,
             color=user.color,
             bio=None if is_ghost else user.bio,

@@ -28,6 +28,7 @@ class UserFinanceUpdate(CamelModel):
 
 class ProfileUpdate(CamelModel):
     display_name: str | None = Field(None, min_length=1, max_length=100)
+    username: str | None = Field(None, min_length=1, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
     bio: str | None = Field(None, max_length=500)
 
 
@@ -38,6 +39,7 @@ class SettingsUpdate(CamelModel):
 class AuthorInfo(CamelModel):
     id: uuid.UUID
     display_name: str
+    username: str | None = None
     initials: str
     color: str
     avatar_url: str | None = None
@@ -46,6 +48,7 @@ class AuthorInfo(CamelModel):
 class UserPublicResponse(CamelModel):
     id: uuid.UUID
     display_name: str
+    username: str | None = None
     initials: str
     color: str
     bio: str | None = None

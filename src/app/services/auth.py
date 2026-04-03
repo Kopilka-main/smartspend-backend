@@ -44,6 +44,7 @@ def _user_to_response(user: User) -> UserResponse:
         id=user.id,
         email=user.email,
         display_name=user.display_name,
+        username=user.username,
         initials=user.initials,
         color=user.color,
         bio=user.bio,

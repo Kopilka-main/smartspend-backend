@@ -49,6 +49,7 @@ def _author_info(user) -> AuthorInfo | None:
         )
     return AuthorInfo(
         id=user.id, display_name=user.display_name,
+        username=user.username,
         initials=user.initials, color=user.color,
         avatar_url=user.avatar_url,
     )

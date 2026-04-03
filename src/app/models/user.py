@@ -16,6 +16,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    username: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
     initials: Mapped[str] = mapped_column(String(2), nullable=False)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7DAF92")
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)

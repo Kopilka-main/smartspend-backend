@@ -41,6 +41,7 @@ class UserResponse(CamelModel):
     id: uuid.UUID
     email: str
     display_name: str
+    username: str | None = None
     initials: str
     color: str
     bio: str | None = None
