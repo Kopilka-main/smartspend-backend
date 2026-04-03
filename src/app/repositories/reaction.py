@@ -60,7 +60,7 @@ class ReactionRepository:
         self, user_id: uuid.UUID, target_type: str | None = None
     ) -> list[Reaction]:
         stmt = select(Reaction).where(Reaction.user_id == user_id)
-        if target_type:
+        if target_type and target_type != "all":
             stmt = stmt.where(Reaction.target_type == target_type)
         result = await self._session.execute(stmt)
         return list(result.scalars().all())

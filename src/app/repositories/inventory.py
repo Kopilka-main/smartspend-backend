@@ -34,7 +34,7 @@ class InventoryRepository:
             )
             .where(InventoryItem.user_id == user_id)
         )
-        if group_id:
+        if group_id and group_id != "all":
             stmt = stmt.where(InventoryItem.group_id == group_id)
         stmt = stmt.order_by(InventoryItem.group_id, InventoryItem.created_at)
         result = await self._session.execute(stmt)

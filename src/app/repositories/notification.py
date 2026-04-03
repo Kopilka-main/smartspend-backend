@@ -18,7 +18,7 @@ class NotificationRepository:
         offset: int = 0,
     ) -> tuple[list[Notification], int]:
         base = select(Notification).where(Notification.user_id == user_id)
-        if notif_type:
+        if notif_type and notif_type != "all":
             base = base.where(Notification.type == notif_type)
 
         count_q = select(func.count()).select_from(base.with_only_columns(Notification.id).subquery())

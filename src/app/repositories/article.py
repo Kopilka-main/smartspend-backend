@@ -39,8 +39,8 @@ class ArticleRepository:
             base = base.where(Article.category_id == category_id)
         if author_id:
             base = base.where(Article.author_id == author_id)
-        if search:
-            pattern = f"%{search}%"
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
             base = base.where(Article.title.ilike(pattern) | Article.preview.ilike(pattern))
 
         count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
