@@ -74,6 +74,7 @@ class SetListItem(CamelModel):
     users_count: int
     is_private: bool
     items_count: int = 0
+    item_names: list[str] = []
     author: AuthorInfo | None = None
     created_at: datetime
 

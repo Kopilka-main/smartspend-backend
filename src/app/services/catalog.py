@@ -88,6 +88,7 @@ def _set_to_list_item(s: Set) -> SetListItem:
         amount_label=s.amount_label, users_count=s.users_count,
         is_private=s.is_private,
         items_count=len(s.items) if s.items else 0,
+        item_names=[i.name for i in (s.items or [])],
         author=_author_info(s.author),
         created_at=s.created_at,
     )
@@ -107,6 +108,10 @@ class CatalogService:
             category_id=category_id, source=source, set_type=set_type,
             search=search, sort=sort, limit=limit, offset=offset,
         )
+        return [_set_to_list_item(s) for s in sets], total
+    async def list_by_author(self, author_id) -> tuple[list[SetListItem], int]:
+        """Return sets created by a specific user."""
+        sets, total = await self._repo.list_by_author(author_id)
         return [_set_to_list_item(s) for s in sets], total
 
     async def get_set(self, set_id: str) -> SetResponse:
@@ -153,6 +158,11 @@ class CatalogService:
         if total > 0:
             stmt = sa_update(Set).where(Set.id == set_id).values(
                 amount=total, amount_label="руб / месяц"
+            )
+            await self._session.execute(stmt)
+        else:
+            stmt = sa_update(Set).where(Set.id == set_id).values(
+                amount=0, amount_label="руб / месяц"
             )
             await self._session.execute(stmt)
 

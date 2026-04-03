@@ -37,6 +37,14 @@ async def list_sets(
     )
 
 
+@router.get("/my", response_model=ApiResponse[list[SetListItem]])
+async def list_my_sets(user: CurrentUser, session: Session):
+    """Return sets created by the current user."""
+    service = CatalogService(session)
+    items, total = await service.list_by_author(user.id)
+    return ApiResponse(data=items)
+
+
 @router.get("/{set_id}", response_model=ApiResponse[SetResponse])
 async def get_set(set_id: str, session: Session):
     service = CatalogService(session)
