@@ -46,8 +46,11 @@ class EnvelopeService:
 
         total_amount = 0
         for item in (s.items or []):
-            if item.period_years and item.period_years > 0:
-                monthly = int((item.base_price * item.qty) / (item.period_years * 12))
+            bp = item.base_price or 0
+            qty = item.qty or 1
+            py = item.period_years or 0
+            if py > 0:
+                monthly = int((bp * qty) / (py * 12))
                 total_amount += monthly
 
         envelope = Envelope(
@@ -64,15 +67,17 @@ class EnvelopeService:
         inv_items = []
         for idx, si in enumerate(s.items or []):
             item_id = f"inv_{set_id}_{idx}_{ts}"
+            bp = int(si.base_price) if si.base_price else (si.price or 0)
+            py = si.period_years or 0
             inv_item = InventoryItem(
                 id=item_id, user_id=user.id, group_id=group_id,
                 type=si.item_type, name=si.name,
-                price=int(si.base_price), set_id=set_id,
+                price=bp, set_id=set_id,
                 is_extra=True, paused=True,
                 qty=si.qty if si.item_type == "consumable" else None,
                 unit=si.unit if si.item_type == "consumable" else None,
                 daily_use=None, last_bought=None,
-                wear_life_weeks=int(si.period_years * 52) if si.item_type == "wear" else None,
+                wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
             )
             inv_items.append(inv_item)
 
