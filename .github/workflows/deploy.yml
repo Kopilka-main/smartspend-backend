@@ -15,7 +15,7 @@ jobs:
           username: goncharov
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd /project/SmartSpend
+            cd /project/smartspend/back
             git pull origin main
             docker compose up -d --build
             docker exec smartspend-api python -m alembic upgrade head
