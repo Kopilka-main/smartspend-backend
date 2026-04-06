@@ -6,9 +6,9 @@ from src.app.schemas.base import CamelModel
 
 
 class ReactionCreate(CamelModel):
-    target_type: str = Field(max_length=20)
+    target_type: str = Field(pattern="^(article|set|article_comment|set_comment)$")
     target_id: str = Field(max_length=30)
-    type: str = Field(max_length=10)
+    type: str = Field(pattern="^(like|dislike)$")
 
 
 class ReactionResponse(CamelModel):
