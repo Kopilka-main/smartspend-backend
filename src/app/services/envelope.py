@@ -26,8 +26,8 @@ class EnvelopeService:
         return [EnvelopeCategoryResponse.model_validate(c) for c in cats]
 
     async def list_envelopes(self, user_id: uuid.UUID) -> list[EnvelopeResponse]:
-        envelopes = await self._repo.list_by_user(user_id)
-        return [EnvelopeResponse.from_orm_obj(e) for e in envelopes]
+        rows = await self._repo.list_by_user(user_id)
+        return [EnvelopeResponse.from_orm_obj(e, source=source) for e, source in rows]
 
     async def add_set_to_profile(self, user: User, set_id: str) -> EnvelopeResponse:
         existing = await self._repo.find_by_user_set(user.id, set_id)
@@ -89,7 +89,7 @@ class EnvelopeService:
         )
         await self._session.execute(stmt)
         await self._session.commit()
-        return EnvelopeResponse.from_orm_obj(envelope)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source)
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
         envelope = await self._repo.find_by_user_set(user.id, set_id)

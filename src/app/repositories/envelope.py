@@ -14,14 +14,17 @@ class EnvelopeRepository:
     async def get_by_id(self, envelope_id: int) -> Envelope | None:
         return await self._session.get(Envelope, envelope_id)
 
-    async def list_by_user(self, user_id: uuid.UUID) -> list[Envelope]:
+    async def list_by_user(self, user_id: uuid.UUID) -> list[tuple[Envelope, str | None]]:
+        from src.app.models.set import Set
+
         stmt = (
-            select(Envelope)
+            select(Envelope, Set.source)
+            .outerjoin(Set, Envelope.set_id == Set.id)
             .where(Envelope.user_id == user_id)
             .order_by(Envelope.category_id, Envelope.created_at)
         )
         result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        return [(row[0], row[1]) for row in result.all()]
 
     async def find_by_user_set(self, user_id: uuid.UUID, set_id: str) -> Envelope | None:
         stmt = select(Envelope).where(
