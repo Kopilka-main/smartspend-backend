@@ -6,7 +6,7 @@ from src.app.schemas.base import CamelModel
 
 
 class ReactionCreate(CamelModel):
-    target_type: str = Field(pattern="^(article|set|article_comment|set_comment)$")
+    target_type: str = Field(pattern="^(article|set|comment)$")
     target_id: str = Field(max_length=30)
     type: str = Field(pattern="^(like|dislike)$")
 
