@@ -3,12 +3,14 @@ import uuid
 from datetime import date
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.article import Article, ArticleBlock
 from src.app.models.article_comment import ArticleComment
 from src.app.models.article_set_link import ArticleSetLink
+from src.app.models.set import Set
 from src.app.models.user import User
 from src.app.repositories.article import ArticleRepository
 from src.app.schemas.article import (
@@ -43,7 +45,7 @@ def _author_info(user) -> AuthorInfo | None:
     )
 
 
-def _article_to_response(a: Article) -> ArticleResponse:
+def _article_to_response(a: Article, set_title: str | None = None) -> ArticleResponse:
     return ArticleResponse(
         id=a.id,
         title=a.title,
@@ -55,7 +57,9 @@ def _article_to_response(a: Article) -> ArticleResponse:
         views_count=a.views_count,
         likes_count=a.likes_count,
         dislikes_count=a.dislikes_count,
+        comments_count=len(a.comments) if a.comments else 0,
         linked_set_id=a.linked_set_id,
+        linked_set_title=set_title,
         blocks=[],
         author=_author_info(a.author),
         created_at=a.created_at,
@@ -63,7 +67,7 @@ def _article_to_response(a: Article) -> ArticleResponse:
     )
 
 
-def _article_to_list_item(a: Article) -> ArticleListItem:
+def _article_to_list_item(a: Article, set_title: str | None = None) -> ArticleListItem:
     return ArticleListItem(
         id=a.id,
         title=a.title,
@@ -75,7 +79,9 @@ def _article_to_list_item(a: Article) -> ArticleListItem:
         views_count=a.views_count,
         likes_count=a.likes_count,
         dislikes_count=a.dislikes_count,
+        comments_count=len(a.comments) if a.comments else 0,
         linked_set_id=a.linked_set_id,
+        linked_set_title=set_title,
         author=_author_info(a.author),
         created_at=a.created_at,
     )
@@ -85,6 +91,14 @@ class ArticleService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._repo = ArticleRepository(session)
+
+    async def _resolve_set_titles(self, articles: list[Article]) -> dict[str, str]:
+        set_ids = {a.linked_set_id for a in articles if a.linked_set_id}
+        if not set_ids:
+            return {}
+        stmt = select(Set.id, Set.title).where(Set.id.in_(set_ids))
+        result = await self._session.execute(stmt)
+        return dict(result.all())
 
     async def list_published(
         self,
@@ -103,19 +117,25 @@ class ArticleService:
             limit=limit,
             offset=offset,
         )
-        return [_article_to_list_item(a) for a in articles], total
+        titles = await self._resolve_set_titles(articles)
+        return [_article_to_list_item(a, titles.get(a.linked_set_id)) for a in articles], total
 
     async def list_by_author(
         self, author_id: uuid.UUID, limit: int = 50, offset: int = 0
     ) -> tuple[list[ArticleListItem], int]:
         articles, total = await self._repo.list_by_author(author_id, limit, offset)
-        return [_article_to_list_item(a) for a in articles], total
+        titles = await self._resolve_set_titles(articles)
+        return [_article_to_list_item(a, titles.get(a.linked_set_id)) for a in articles], total
 
     async def get_article(self, article_id: str) -> ArticleResponse:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-        resp = _article_to_response(a)
+        set_title = None
+        if a.linked_set_id:
+            titles = await self._resolve_set_titles([a])
+            set_title = titles.get(a.linked_set_id)
+        resp = _article_to_response(a, set_title)
         resp.blocks = [
             ArticleBlockResponse(
                 id=b.id,

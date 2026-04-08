@@ -36,7 +36,9 @@ class ArticleResponse(CamelModel):
     views_count: int
     likes_count: int
     dislikes_count: int
+    comments_count: int = 0
     linked_set_id: str | None = None
+    linked_set_title: str | None = None
     blocks: list[ArticleBlockResponse] = []
     author: AuthorInfo | None = None
     created_at: datetime
@@ -54,7 +56,9 @@ class ArticleListItem(CamelModel):
     views_count: int
     likes_count: int
     dislikes_count: int
+    comments_count: int = 0
     linked_set_id: str | None = None
+    linked_set_title: str | None = None
     author: AuthorInfo | None = None
     created_at: datetime
 

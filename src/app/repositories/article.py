@@ -16,7 +16,11 @@ class ArticleRepository:
     async def get_by_id(self, article_id: str) -> Article | None:
         stmt = (
             select(Article)
-            .options(selectinload(Article.blocks), selectinload(Article.author))
+            .options(
+                selectinload(Article.blocks),
+                selectinload(Article.author),
+                selectinload(Article.comments),
+            )
             .where(Article.id == article_id)
         )
         result = await self._session.execute(stmt)
@@ -31,7 +35,11 @@ class ArticleRepository:
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Article], int]:
-        base = select(Article).options(selectinload(Article.author)).where(Article.status == "published")
+        base = (
+            select(Article)
+            .options(selectinload(Article.author), selectinload(Article.comments))
+            .where(Article.status == "published")
+        )
 
         if category_id and category_id != "all":
             base = base.where(Article.category_id == category_id)
@@ -54,7 +62,11 @@ class ArticleRepository:
         return list(result.scalars().unique().all()), total
 
     async def list_by_author(self, author_id: uuid.UUID, limit: int = 50, offset: int = 0) -> tuple[list[Article], int]:
-        base = select(Article).options(selectinload(Article.author)).where(Article.author_id == author_id)
+        base = (
+            select(Article)
+            .options(selectinload(Article.author), selectinload(Article.comments))
+            .where(Article.author_id == author_id)
+        )
 
         count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
         total = (await self._session.execute(count_q)).scalar_one()
