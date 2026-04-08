@@ -31,9 +31,7 @@ class ArticleRepository:
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Article], int]:
-        base = select(Article).options(
-            selectinload(Article.author)
-        ).where(Article.status == "published")
+        base = select(Article).options(selectinload(Article.author)).where(Article.status == "published")
 
         if category_id and category_id != "all":
             base = base.where(Article.category_id == category_id)
@@ -55,12 +53,8 @@ class ArticleRepository:
         result = await self._session.execute(base)
         return list(result.scalars().unique().all()), total
 
-    async def list_by_author(
-        self, author_id: uuid.UUID, limit: int = 50, offset: int = 0
-    ) -> tuple[list[Article], int]:
-        base = select(Article).options(
-            selectinload(Article.author)
-        ).where(Article.author_id == author_id)
+    async def list_by_author(self, author_id: uuid.UUID, limit: int = 50, offset: int = 0) -> tuple[list[Article], int]:
+        base = select(Article).options(selectinload(Article.author)).where(Article.author_id == author_id)
 
         count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
         total = (await self._session.execute(count_q)).scalar_one()
@@ -70,9 +64,7 @@ class ArticleRepository:
         return list(result.scalars().unique().all()), total
 
     async def count_by_author(self, author_id: uuid.UUID) -> int:
-        stmt = select(func.count()).where(
-            Article.author_id == author_id, Article.status == "published"
-        )
+        stmt = select(func.count()).where(Article.author_id == author_id, Article.status == "published")
         return (await self._session.execute(stmt)).scalar_one()
 
     async def create(self, article: Article) -> Article:

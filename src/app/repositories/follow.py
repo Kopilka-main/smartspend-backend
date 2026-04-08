@@ -11,9 +11,7 @@ class FollowRepository:
         self._session = session
 
     async def exists(self, follower_id: uuid.UUID, following_id: uuid.UUID) -> bool:
-        stmt = select(func.count()).where(
-            Follow.follower_id == follower_id, Follow.following_id == following_id
-        )
+        stmt = select(func.count()).where(Follow.follower_id == follower_id, Follow.following_id == following_id)
         return (await self._session.execute(stmt)).scalar_one() > 0
 
     async def create(self, follower_id: uuid.UUID, following_id: uuid.UUID) -> Follow:
@@ -23,9 +21,7 @@ class FollowRepository:
         return follow
 
     async def remove(self, follower_id: uuid.UUID, following_id: uuid.UUID) -> None:
-        stmt = delete(Follow).where(
-            Follow.follower_id == follower_id, Follow.following_id == following_id
-        )
+        stmt = delete(Follow).where(Follow.follower_id == follower_id, Follow.following_id == following_id)
         await self._session.execute(stmt)
 
     async def count_followers(self, user_id: uuid.UUID) -> int:

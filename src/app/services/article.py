@@ -28,36 +28,53 @@ def _author_info(user) -> AuthorInfo | None:
         return None
     if user.deleted_at is not None:
         return AuthorInfo(
-            id=user.id, display_name="👻 Привидение",
-            initials="👻", color=user.color,
+            id=user.id,
+            display_name="👻 Привидение",
+            initials="👻",
+            color=user.color,
         )
     return AuthorInfo(
-        id=user.id, display_name=user.display_name,
-        initials=user.initials, color=user.color,
+        id=user.id,
+        display_name=user.display_name,
+        initials=user.initials,
+        color=user.color,
         avatar_url=user.avatar_url,
     )
 
 
 def _article_to_response(a: Article) -> ArticleResponse:
     return ArticleResponse(
-        id=a.id, title=a.title, article_type=a.article_type,
-        category_id=a.category_id, preview=a.preview,
-        published_at=a.published_at, status=a.status,
-        views_count=a.views_count, likes_count=a.likes_count,
-        dislikes_count=a.dislikes_count, linked_set_id=a.linked_set_id,
+        id=a.id,
+        title=a.title,
+        article_type=a.article_type,
+        category_id=a.category_id,
+        preview=a.preview,
+        published_at=a.published_at,
+        status=a.status,
+        views_count=a.views_count,
+        likes_count=a.likes_count,
+        dislikes_count=a.dislikes_count,
+        linked_set_id=a.linked_set_id,
         blocks=[],
         author=_author_info(a.author),
-        created_at=a.created_at, updated_at=a.updated_at,
+        created_at=a.created_at,
+        updated_at=a.updated_at,
     )
 
 
 def _article_to_list_item(a: Article) -> ArticleListItem:
     return ArticleListItem(
-        id=a.id, title=a.title, article_type=a.article_type,
-        category_id=a.category_id, preview=a.preview,
-        published_at=a.published_at, status=a.status,
-        views_count=a.views_count, likes_count=a.likes_count,
-        dislikes_count=a.dislikes_count, linked_set_id=a.linked_set_id,
+        id=a.id,
+        title=a.title,
+        article_type=a.article_type,
+        category_id=a.category_id,
+        preview=a.preview,
+        published_at=a.published_at,
+        status=a.status,
+        views_count=a.views_count,
+        likes_count=a.likes_count,
+        dislikes_count=a.dislikes_count,
+        linked_set_id=a.linked_set_id,
         author=_author_info(a.author),
         created_at=a.created_at,
     )
@@ -69,13 +86,21 @@ class ArticleService:
         self._repo = ArticleRepository(session)
 
     async def list_published(
-        self, category_id: str | None = None, author_id: uuid.UUID | None = None,
-        search: str | None = None, sort: str = "newest",
-        limit: int = 20, offset: int = 0,
+        self,
+        category_id: str | None = None,
+        author_id: uuid.UUID | None = None,
+        search: str | None = None,
+        sort: str = "newest",
+        limit: int = 20,
+        offset: int = 0,
     ) -> tuple[list[ArticleListItem], int]:
         articles, total = await self._repo.list_published(
-            category_id=category_id, author_id=author_id,
-            search=search, sort=sort, limit=limit, offset=offset,
+            category_id=category_id,
+            author_id=author_id,
+            search=search,
+            sort=sort,
+            limit=limit,
+            offset=offset,
         )
         return [_article_to_list_item(a) for a in articles], total
 
@@ -91,8 +116,15 @@ class ArticleService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
         resp = _article_to_response(a)
         resp.blocks = [
-            {"id": b.id, "position": b.position, "type": b.type,
-             "text": b.text, "html": b.html, "items": b.items, "title": b.title}
+            {
+                "id": b.id,
+                "position": b.position,
+                "type": b.type,
+                "text": b.text,
+                "html": b.html,
+                "items": b.items,
+                "title": b.title,
+            }
             for b in (a.blocks or [])
         ]
         return resp
@@ -100,9 +132,13 @@ class ArticleService:
     async def create_article(self, user: User, data: ArticleCreate) -> ArticleResponse:
         article_id = f"a_{int(time.time() * 1000)}"
         article = Article(
-            id=article_id, author_id=user.id, title=data.title,
-            article_type=data.article_type, category_id=data.category_id,
-            preview=data.preview, linked_set_id=data.linked_set_id,
+            id=article_id,
+            author_id=user.id,
+            title=data.title,
+            article_type=data.article_type,
+            category_id=data.category_id,
+            preview=data.preview,
+            linked_set_id=data.linked_set_id,
             status="draft",
         )
         await self._repo.create(article)
@@ -110,8 +146,13 @@ class ArticleService:
         if data.blocks:
             blocks = [
                 ArticleBlock(
-                    article_id=article_id, position=b.position, type=b.type,
-                    text=b.text, html=b.html, items=b.items, title=b.title,
+                    article_id=article_id,
+                    position=b.position,
+                    type=b.type,
+                    text=b.text,
+                    html=b.html,
+                    items=b.items,
+                    title=b.title,
                 )
                 for b in data.blocks
             ]
@@ -121,9 +162,7 @@ class ArticleService:
         self._session.expire_all()
         return await self.get_article(article_id)
 
-    async def update_article(
-        self, article_id: str, user: User, data: ArticleUpdate
-    ) -> ArticleResponse:
+    async def update_article(self, article_id: str, user: User, data: ArticleUpdate) -> ArticleResponse:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
@@ -155,8 +194,13 @@ class ArticleService:
             await self._repo.delete_blocks_by_article(article_id)
             blocks = [
                 ArticleBlock(
-                    article_id=article_id, position=b.position, type=b.type,
-                    text=b.text, html=b.html, items=b.items, title=b.title,
+                    article_id=article_id,
+                    position=b.position,
+                    type=b.type,
+                    text=b.text,
+                    html=b.html,
+                    items=b.items,
+                    title=b.title,
                 )
                 for b in data.blocks
             ]
@@ -175,8 +219,13 @@ class ArticleService:
         if a.status == "published":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Already published")
 
-        stmt = sa_update(Article).where(Article.id == article_id).values(
-            status="published", published_at=date.today(),
+        stmt = (
+            sa_update(Article)
+            .where(Article.id == article_id)
+            .values(
+                status="published",
+                published_at=date.today(),
+            )
         )
         await self._session.execute(stmt)
         await self._session.commit()
@@ -193,9 +242,7 @@ class ArticleService:
         await self._session.commit()
 
     async def increment_views(self, article_id: str) -> None:
-        stmt = sa_update(Article).where(Article.id == article_id).values(
-            views_count=Article.views_count + 1
-        )
+        stmt = sa_update(Article).where(Article.id == article_id).values(views_count=Article.views_count + 1)
         await self._session.execute(stmt)
         await self._session.commit()
 
@@ -205,34 +252,41 @@ class ArticleService:
         comments, total = await self._repo.list_comments(article_id, sort, limit, offset)
         return [
             ArticleCommentResponse(
-                id=c.id, article_id=c.article_id,
+                id=c.id,
+                article_id=c.article_id,
                 user_id=str(c.user_id) if c.user_id else None,
-                initials=c.initials, name=c.name, text=c.text,
-                likes_count=c.likes_count, dislikes_count=c.dislikes_count,
+                initials=c.initials,
+                name=c.name,
+                text=c.text,
+                likes_count=c.likes_count,
+                dislikes_count=c.dislikes_count,
                 created_at=c.created_at,
             )
             for c in comments
         ], total
 
-    async def add_comment(
-        self, article_id: str, user: User, data: ArticleCommentCreate
-    ) -> ArticleCommentResponse:
+    async def add_comment(self, article_id: str, user: User, data: ArticleCommentCreate) -> ArticleCommentResponse:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
 
         comment = ArticleComment(
-            article_id=article_id, user_id=user.id,
-            initials=user.initials, name=user.display_name,
+            article_id=article_id,
+            user_id=user.id,
+            initials=user.initials,
+            name=user.display_name,
             text=data.text,
         )
         comment = await self._repo.add_comment(comment)
         await self._session.commit()
         return ArticleCommentResponse(
-            id=comment.id, article_id=comment.article_id,
+            id=comment.id,
+            article_id=comment.article_id,
             user_id=str(comment.user_id),
-            initials=comment.initials, name=comment.name,
-            text=comment.text, likes_count=comment.likes_count,
+            initials=comment.initials,
+            name=comment.name,
+            text=comment.text,
+            likes_count=comment.likes_count,
             dislikes_count=comment.dislikes_count,
             created_at=comment.created_at,
         )
@@ -246,11 +300,11 @@ class ArticleService:
         await self._repo.delete_comment(comment_id)
         await self._session.commit()
 
-    async def link_to_set(
-        self, article_id: str, user: User, data: ArticleSetLinkCreate
-    ) -> None:
+    async def link_to_set(self, article_id: str, user: User, data: ArticleSetLinkCreate) -> None:
         link = ArticleSetLink(
-            article_id=article_id, user_id=user.id, set_id=data.set_id,
+            article_id=article_id,
+            user_id=user.id,
+            set_id=data.set_id,
         )
         await self._repo.link_to_set(link)
         await self._session.commit()

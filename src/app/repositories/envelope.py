@@ -27,9 +27,7 @@ class EnvelopeRepository:
         return [(row[0], row[1]) for row in result.all()]
 
     async def find_by_user_set(self, user_id: uuid.UUID, set_id: str) -> Envelope | None:
-        stmt = select(Envelope).where(
-            Envelope.user_id == user_id, Envelope.set_id == set_id
-        )
+        stmt = select(Envelope).where(Envelope.user_id == user_id, Envelope.set_id == set_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -46,15 +44,11 @@ class EnvelopeRepository:
             await self._session.flush()
 
     async def delete_by_user_set(self, user_id: uuid.UUID, set_id: str) -> None:
-        stmt = delete(Envelope).where(
-            Envelope.user_id == user_id, Envelope.set_id == set_id
-        )
+        stmt = delete(Envelope).where(Envelope.user_id == user_id, Envelope.set_id == set_id)
         await self._session.execute(stmt)
 
     async def sum_amount_by_user(self, user_id: uuid.UUID) -> int:
-        stmt = select(func.coalesce(func.sum(Envelope.amount), 0)).where(
-            Envelope.user_id == user_id
-        )
+        stmt = select(func.coalesce(func.sum(Envelope.amount), 0)).where(Envelope.user_id == user_id)
         return (await self._session.execute(stmt)).scalar_one()
 
     async def list_categories(self) -> list[EnvelopeCategory]:

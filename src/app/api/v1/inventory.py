@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, UploadFile
 
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.base import ApiResponse
@@ -73,9 +73,10 @@ async def delete_item(item_id: str, user: CurrentUser, session: Session):
 
 
 @router.post("/items/{item_id}/photos", response_model=ApiResponse[InventoryPhotoResponse], status_code=201)
-async def add_photo(item_id: str, user: CurrentUser, session: Session):
+async def add_photo(item_id: str, file: UploadFile, user: CurrentUser, session: Session):
+    """Upload a photo for an inventory item. Accepts multipart/form-data with a 'file' field."""
     service = InventoryService(session)
-    return ApiResponse(data=await service.add_photo(item_id, user.id, url="placeholder", file_name="placeholder"))
+    return ApiResponse(data=await service.add_photo(item_id, user.id, file))
 
 
 @router.delete("/photos/{photo_id}", response_model=ApiResponse[None])

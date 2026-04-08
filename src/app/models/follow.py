@@ -10,9 +10,7 @@ from src.app.core.database import Base
 
 class Follow(Base):
     __tablename__ = "follows"
-    __table_args__ = (
-        CheckConstraint("follower_id <> following_id", name="chk_no_self_follow"),
-    )
+    __table_args__ = (CheckConstraint("follower_id <> following_id", name="chk_no_self_follow"),)
 
     follower_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True

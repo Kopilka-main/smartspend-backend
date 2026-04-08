@@ -12,15 +12,22 @@ class NotificationService:
         self._repo = NotificationRepository(session)
 
     async def list_notifications(
-        self, user_id: uuid.UUID, notif_type: str | None = None,
-        limit: int = 50, offset: int = 0,
+        self,
+        user_id: uuid.UUID,
+        notif_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> tuple[list[NotificationResponse], int]:
         notifs, total = await self._repo.list_by_user(user_id, notif_type, limit, offset)
         return [
             NotificationResponse(
-                id=n.id, user_id=str(n.user_id), type=n.type,
-                title=n.title, description=n.description,
-                is_read=n.is_read, payload=n.payload,
+                id=n.id,
+                user_id=str(n.user_id),
+                type=n.type,
+                title=n.title,
+                description=n.description,
+                is_read=n.is_read,
+                payload=n.payload,
                 created_at=n.created_at,
             )
             for n in notifs

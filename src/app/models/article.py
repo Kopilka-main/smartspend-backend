@@ -27,9 +27,7 @@ class Article(Base):
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     article_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    category_id: Mapped[str | None] = mapped_column(
-        String(20), ForeignKey("envelope_categories.id"), nullable=True
-    )
+    category_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("envelope_categories.id"), nullable=True)
     preview: Mapped[str | None] = mapped_column(Text, nullable=True)
     published_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
@@ -45,7 +43,9 @@ class Article(Base):
     )
 
     blocks: Mapped[list["ArticleBlock"]] = relationship(
-        back_populates="article", cascade="all, delete-orphan", lazy="selectin",
+        back_populates="article",
+        cascade="all, delete-orphan",
+        lazy="selectin",
         order_by="ArticleBlock.position",
     )
     comments: Mapped[list["ArticleComment"]] = relationship(
@@ -56,9 +56,7 @@ class Article(Base):
 
 class ArticleBlock(Base):
     __tablename__ = "article_blocks"
-    __table_args__ = (
-        UniqueConstraint("article_id", "position", name="uq_article_block_position"),
-    )
+    __table_args__ = (UniqueConstraint("article_id", "position", name="uq_article_block_position"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     article_id: Mapped[str] = mapped_column(

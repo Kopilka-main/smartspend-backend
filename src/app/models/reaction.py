@@ -10,9 +10,7 @@ from src.app.core.database import Base
 
 class Reaction(Base):
     __tablename__ = "reactions"
-    __table_args__ = (
-        UniqueConstraint("user_id", "target_type", "target_id", name="uq_reaction_per_user"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "target_type", "target_id", name="uq_reaction_per_user"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(

@@ -11,9 +11,7 @@ from src.app.core.database import Base
 class ArticleSetLink(Base):
     __tablename__ = "article_set_links"
 
-    article_id: Mapped[str] = mapped_column(
-        String(20), ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True
-    )
+    article_id: Mapped[str] = mapped_column(String(20), ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )

@@ -39,15 +39,11 @@ class InventoryItem(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    group_id: Mapped[str] = mapped_column(
-        String(5), ForeignKey("inventory_groups.id"), nullable=False
-    )
+    group_id: Mapped[str] = mapped_column(String(5), ForeignKey("inventory_groups.id"), nullable=False)
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    set_id: Mapped[str | None] = mapped_column(
-        String(20), ForeignKey("sets.id", ondelete="SET NULL"), nullable=True
-    )
+    set_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("sets.id", ondelete="SET NULL"), nullable=True)
     is_extra: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -63,7 +59,9 @@ class InventoryItem(Base):
     )
 
     purchases: Mapped[list["InventoryPurchase"]] = relationship(
-        back_populates="item", cascade="all, delete-orphan", lazy="selectin",
+        back_populates="item",
+        cascade="all, delete-orphan",
+        lazy="selectin",
         order_by="InventoryPurchase.position",
     )
     photos: Mapped[list["InventoryPhoto"]] = relationship(
@@ -73,9 +71,7 @@ class InventoryItem(Base):
 
 class InventoryPurchase(Base):
     __tablename__ = "inventory_purchases"
-    __table_args__ = (
-        UniqueConstraint("item_id", "position", name="uq_purchase_item_pos"),
-    )
+    __table_args__ = (UniqueConstraint("item_id", "position", name="uq_purchase_item_pos"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     item_id: Mapped[str] = mapped_column(

@@ -28,11 +28,18 @@ class EnvelopeResponse(CamelModel):
     @classmethod
     def from_orm_obj(cls, e, source: str | None = None) -> "EnvelopeResponse":
         return cls(
-            id=e.id, user_id=str(e.user_id), category_id=e.category_id,
-            set_id=e.set_id, name=e.name, items_count=e.items_count,
-            amount=e.amount, envelope_type=e.envelope_type,
-            source=source, period=e.period,
-            created_at=e.created_at, updated_at=e.updated_at,
+            id=e.id,
+            user_id=str(e.user_id),
+            category_id=e.category_id,
+            set_id=e.set_id,
+            name=e.name,
+            items_count=e.items_count,
+            amount=e.amount,
+            envelope_type=e.envelope_type,
+            source=source,
+            period=e.period,
+            created_at=e.created_at,
+            updated_at=e.updated_at,
         )
 
 

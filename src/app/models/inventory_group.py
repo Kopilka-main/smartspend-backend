@@ -15,9 +15,5 @@ class InventoryGroup(Base):
 class InventoryGroupCategory(Base):
     __tablename__ = "inventory_group_categories"
 
-    group_id: Mapped[str] = mapped_column(
-        String(5), ForeignKey("inventory_groups.id"), primary_key=True
-    )
-    category_id: Mapped[str] = mapped_column(
-        String(20), ForeignKey("envelope_categories.id"), primary_key=True
-    )
+    group_id: Mapped[str] = mapped_column(String(5), ForeignKey("inventory_groups.id"), primary_key=True)
+    category_id: Mapped[str] = mapped_column(String(20), ForeignKey("envelope_categories.id"), primary_key=True)

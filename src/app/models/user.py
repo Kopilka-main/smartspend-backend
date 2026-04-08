@@ -21,9 +21,7 @@ class User(Base):
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7DAF92")
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[UserStatus] = mapped_column(
-        String(20), nullable=False, default=UserStatus.UNVERIFIED
-    )
+    status: Mapped[UserStatus] = mapped_column(String(20), nullable=False, default=UserStatus.UNVERIFIED)
     theme: Mapped[Theme] = mapped_column(String(5), nullable=False, default=Theme.LIGHT)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -33,6 +31,4 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    finance: Mapped["UserFinance | None"] = relationship(
-        back_populates="user", uselist=False, lazy="selectin"
-    )
+    finance: Mapped["UserFinance | None"] = relationship(back_populates="user", uselist=False, lazy="selectin")

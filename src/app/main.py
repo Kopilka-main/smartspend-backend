@@ -1,14 +1,18 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.app.api.v1.router import api_router
-from src.app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+UPLOAD_DIR = Path("/app/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="SmartSpend API",
@@ -16,6 +20,8 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,9 +43,7 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(
-    _request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     errors = []
     for err in exc.errors():
         loc = ".".join(str(x) for x in err["loc"] if x != "body")

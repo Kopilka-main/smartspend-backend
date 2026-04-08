@@ -30,33 +30,33 @@ def _compute_monthly(item) -> Decimal:
                 иначе просто price (считаем что покупается раз в месяц)
     fallback на basePrice/periodYears если заданы.
     """
-    price = getattr(item, 'price', 0) or 0
-    item_type = getattr(item, 'item_type', 'consumable')
+    price = getattr(item, "price", 0) or 0
+    item_type = getattr(item, "item_type", "consumable")
 
     # wear: цена / срок в месяцах
     if item_type == "wear":
-        weeks = getattr(item, 'wear_life_weeks', None)
+        weeks = getattr(item, "wear_life_weeks", None)
         if weeks and weeks > 0:
             months = Decimal(weeks) / Decimal("4.33")
             return round(Decimal(price) / months, 2)
         # fallback на basePrice/periodYears
-        bp = getattr(item, 'base_price', None)
-        py = getattr(item, 'period_years', None)
+        bp = getattr(item, "base_price", None)
+        py = getattr(item, "period_years", None)
         if bp and py and py > 0:
             return round(Decimal(bp) / (Decimal(py) * 12), 2)
         return Decimal("0")
 
     # consumable: если есть расход в день и объем, считаем
-    daily = getattr(item, 'daily_use', None)
-    qty = getattr(item, 'qty', None)
+    daily = getattr(item, "daily_use", None)
+    qty = getattr(item, "qty", None)
     if daily and qty and daily > 0 and qty > 0:
         days_supply = Decimal(str(qty)) / Decimal(str(daily))
         if days_supply > 0:
             return round(Decimal(price) / (days_supply / Decimal("30.44")), 2)
 
     # fallback на basePrice/periodYears
-    bp = getattr(item, 'base_price', None)
-    py = getattr(item, 'period_years', None)
+    bp = getattr(item, "base_price", None)
+    py = getattr(item, "period_years", None)
     if bp and py and py > 0:
         q = Decimal(str(qty)) if qty else Decimal("1")
         return round((Decimal(bp) * q) / (Decimal(py) * 12), 2)
@@ -73,13 +73,17 @@ def _author_info(user) -> AuthorInfo | None:
         return None
     if user.deleted_at is not None:
         return AuthorInfo(
-            id=user.id, display_name="👻 Привидение",
-            initials="👻", color=user.color,
+            id=user.id,
+            display_name="👻 Привидение",
+            initials="👻",
+            color=user.color,
         )
     return AuthorInfo(
-        id=user.id, display_name=user.display_name,
+        id=user.id,
+        display_name=user.display_name,
         username=user.username,
-        initials=user.initials, color=user.color,
+        initials=user.initials,
+        color=user.color,
         avatar_url=user.avatar_url,
     )
 
@@ -87,34 +91,58 @@ def _author_info(user) -> AuthorInfo | None:
 def _set_to_response(s: Set) -> SetResponse:
     items = [
         SetItemResponse(
-            id=i.id, name=i.name, note=i.note, item_type=i.item_type,
+            id=i.id,
+            name=i.name,
+            note=i.note,
+            item_type=i.item_type,
             price=i.price or 0,
-            qty=i.qty, unit=i.unit, daily_use=i.daily_use,
-            wear_life_weeks=i.wear_life_weeks, purchase_date=i.purchase_date,
+            qty=i.qty,
+            unit=i.unit,
+            daily_use=i.daily_use,
+            wear_life_weeks=i.wear_life_weeks,
+            purchase_date=i.purchase_date,
             planned_price=i.planned_price,
-            base_price=i.base_price, period_years=i.period_years,
+            base_price=i.base_price,
+            period_years=i.period_years,
             monthly_cost=_compute_monthly(i),
         )
         for i in (s.items or [])
     ]
     return SetResponse(
-        id=s.id, source=s.source, category_id=s.category_id,
-        set_type=s.set_type, color=s.color, title=s.title,
-        description=s.description, amount=s.amount,
-        amount_label=s.amount_label, users_count=s.users_count,
-        added=s.added, is_private=s.is_private, hidden=s.hidden,
-        about_title=s.about_title, about_text=s.about_text,
-        items=items, author=_author_info(s.author),
-        created_at=s.created_at, updated_at=s.updated_at,
+        id=s.id,
+        source=s.source,
+        category_id=s.category_id,
+        set_type=s.set_type,
+        color=s.color,
+        title=s.title,
+        description=s.description,
+        amount=s.amount,
+        amount_label=s.amount_label,
+        users_count=s.users_count,
+        added=s.added,
+        is_private=s.is_private,
+        hidden=s.hidden,
+        about_title=s.about_title,
+        about_text=s.about_text,
+        items=items,
+        author=_author_info(s.author),
+        created_at=s.created_at,
+        updated_at=s.updated_at,
     )
 
 
 def _set_to_list_item(s: Set) -> SetListItem:
     return SetListItem(
-        id=s.id, source=s.source, category_id=s.category_id,
-        set_type=s.set_type, color=s.color, title=s.title,
-        description=s.description, amount=s.amount,
-        amount_label=s.amount_label, users_count=s.users_count,
+        id=s.id,
+        source=s.source,
+        category_id=s.category_id,
+        set_type=s.set_type,
+        color=s.color,
+        title=s.title,
+        description=s.description,
+        amount=s.amount,
+        amount_label=s.amount_label,
+        users_count=s.users_count,
         is_private=s.is_private,
         items_count=len(s.items) if s.items else 0,
         item_names=[i.name for i in (s.items or [])],
@@ -129,15 +157,26 @@ class CatalogService:
         self._repo = CatalogRepository(session)
 
     async def list_sets(
-        self, category_id: str | None = None, source: str | None = None,
-        set_type: str | None = None, search: str | None = None,
-        sort: str = "newest", limit: int = 20, offset: int = 0,
+        self,
+        category_id: str | None = None,
+        source: str | None = None,
+        set_type: str | None = None,
+        search: str | None = None,
+        sort: str = "newest",
+        limit: int = 20,
+        offset: int = 0,
     ) -> tuple[list[SetListItem], int]:
         sets, total = await self._repo.list_public(
-            category_id=category_id, source=source, set_type=set_type,
-            search=search, sort=sort, limit=limit, offset=offset,
+            category_id=category_id,
+            source=source,
+            set_type=set_type,
+            search=search,
+            sort=sort,
+            limit=limit,
+            offset=offset,
         )
         return [_set_to_list_item(s) for s in sets], total
+
     async def list_by_author(self, author_id) -> tuple[list[SetListItem], int]:
         """Return sets created by a specific user."""
         sets, total = await self._repo.list_by_author(author_id)
@@ -154,10 +193,16 @@ class CatalogService:
         source = SetSource.OWN
 
         s = Set(
-            id=set_id, source=source.value, category_id=data.category_id,
-            set_type=data.set_type, color=data.color, title=data.title,
-            description=data.description, is_private=data.is_private,
-            author_id=user.id, about_title=data.about_title,
+            id=set_id,
+            source=source.value,
+            category_id=data.category_id,
+            set_type=data.set_type,
+            color=data.color,
+            title=data.title,
+            description=data.description,
+            is_private=data.is_private,
+            author_id=user.id,
+            about_title=data.about_title,
             about_text=data.about_text,
         )
         await self._repo.create(s)
@@ -165,13 +210,19 @@ class CatalogService:
         if data.items:
             set_items = [
                 SetItem(
-                    set_id=set_id, name=item.name, note=item.note,
-                    item_type=item.item_type, price=item.price,
-                    qty=item.qty, unit=item.unit, daily_use=item.daily_use,
+                    set_id=set_id,
+                    name=item.name,
+                    note=item.note,
+                    item_type=item.item_type,
+                    price=item.price,
+                    qty=item.qty,
+                    unit=item.unit,
+                    daily_use=item.daily_use,
                     wear_life_weeks=item.wear_life_weeks,
                     purchase_date=item.purchase_date,
                     planned_price=item.planned_price,
-                    base_price=item.base_price, period_years=item.period_years,
+                    base_price=item.base_price,
+                    period_years=item.period_years,
                 )
                 for item in data.items
             ]
@@ -184,9 +235,7 @@ class CatalogService:
             refreshed = await self._repo.get_by_id(set_id)
             total = sum(int(_compute_monthly(i)) for i in (refreshed.items or []))
 
-        stmt = sa_update(Set).where(Set.id == set_id).values(
-            amount=total, amount_label="руб / месяц"
-        )
+        stmt = sa_update(Set).where(Set.id == set_id).values(amount=total, amount_label="руб / месяц")
         await self._session.execute(stmt)
 
         await self._session.commit()
@@ -223,13 +272,19 @@ class CatalogService:
             await self._repo.delete_items_by_set(set_id)
             new_items = [
                 SetItem(
-                    set_id=set_id, name=item.name, note=item.note,
-                    item_type=item.item_type, price=item.price,
-                    qty=item.qty, unit=item.unit, daily_use=item.daily_use,
+                    set_id=set_id,
+                    name=item.name,
+                    note=item.note,
+                    item_type=item.item_type,
+                    price=item.price,
+                    qty=item.qty,
+                    unit=item.unit,
+                    daily_use=item.daily_use,
                     wear_life_weeks=item.wear_life_weeks,
                     purchase_date=item.purchase_date,
                     planned_price=item.planned_price,
-                    base_price=item.base_price, period_years=item.period_years,
+                    base_price=item.base_price,
+                    period_years=item.period_years,
                 )
                 for item in data.items
             ]
@@ -275,34 +330,41 @@ class CatalogService:
         comments, total = await self._repo.list_comments(set_id, sort, limit, offset)
         return [
             SetCommentResponse(
-                id=c.id, set_id=c.set_id,
+                id=c.id,
+                set_id=c.set_id,
                 user_id=str(c.user_id) if c.user_id else None,
-                initials=c.initials, name=c.name, text=c.text,
-                likes_count=c.likes_count, dislikes_count=c.dislikes_count,
+                initials=c.initials,
+                name=c.name,
+                text=c.text,
+                likes_count=c.likes_count,
+                dislikes_count=c.dislikes_count,
                 created_at=c.created_at,
             )
             for c in comments
         ], total
 
-    async def add_comment(
-        self, set_id: str, user: User, data: SetCommentCreate
-    ) -> SetCommentResponse:
+    async def add_comment(self, set_id: str, user: User, data: SetCommentCreate) -> SetCommentResponse:
         s = await self._repo.get_by_id(set_id)
         if s is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
 
         comment = SetComment(
-            set_id=set_id, user_id=user.id,
-            initials=user.initials, name=user.display_name,
+            set_id=set_id,
+            user_id=user.id,
+            initials=user.initials,
+            name=user.display_name,
             text=data.text,
         )
         comment = await self._repo.add_comment(comment)
         await self._session.commit()
         return SetCommentResponse(
-            id=comment.id, set_id=comment.set_id,
+            id=comment.id,
+            set_id=comment.set_id,
             user_id=str(comment.user_id),
-            initials=comment.initials, name=comment.name,
-            text=comment.text, likes_count=comment.likes_count,
+            initials=comment.initials,
+            name=comment.name,
+            text=comment.text,
+            likes_count=comment.likes_count,
             dislikes_count=comment.dislikes_count,
             created_at=comment.created_at,
         )

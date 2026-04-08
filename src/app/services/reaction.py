@@ -11,7 +11,6 @@ from src.app.models.set_comment import SetComment
 from src.app.repositories.reaction import ReactionRepository
 from src.app.schemas.reaction import ReactionCreate, ReactionResponse
 
-
 VALID_TARGETS = {t.value for t in ReactionTarget}
 VALID_TYPES = {t.value for t in ReactionType}
 
@@ -21,9 +20,7 @@ class ReactionService:
         self._session = session
         self._repo = ReactionRepository(session)
 
-    async def toggle_reaction(
-        self, user_id: uuid.UUID, data: ReactionCreate
-    ) -> ReactionResponse | None:
+    async def toggle_reaction(self, user_id: uuid.UUID, data: ReactionCreate) -> ReactionResponse | None:
         if data.target_type not in VALID_TARGETS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -44,26 +41,33 @@ class ReactionService:
             return None
 
         reaction = await self._repo.upsert(
-            user_id, data.target_type, data.target_id, data.type,
+            user_id,
+            data.target_type,
+            data.target_id,
+            data.type,
         )
         await self._sync_counts(data.target_type, data.target_id)
         await self._session.commit()
 
         return ReactionResponse(
-            id=reaction.id, user_id=str(reaction.user_id),
-            target_type=reaction.target_type, target_id=reaction.target_id,
-            type=reaction.type, created_at=reaction.created_at,
+            id=reaction.id,
+            user_id=str(reaction.user_id),
+            target_type=reaction.target_type,
+            target_id=reaction.target_id,
+            type=reaction.type,
+            created_at=reaction.created_at,
         )
 
-    async def get_user_reactions(
-        self, user_id: uuid.UUID, target_type: str | None = None
-    ) -> list[ReactionResponse]:
+    async def get_user_reactions(self, user_id: uuid.UUID, target_type: str | None = None) -> list[ReactionResponse]:
         reactions = await self._repo.list_by_user(user_id, target_type)
         return [
             ReactionResponse(
-                id=r.id, user_id=str(r.user_id),
-                target_type=r.target_type, target_id=r.target_id,
-                type=r.type, created_at=r.created_at,
+                id=r.id,
+                user_id=str(r.user_id),
+                target_type=r.target_type,
+                target_id=r.target_id,
+                type=r.type,
+                created_at=r.created_at,
             )
             for r in reactions
         ]
@@ -73,8 +77,13 @@ class ReactionService:
         dislikes = await self._repo.count(target_type, target_id, "dislike")
 
         if target_type == "article":
-            stmt = sa_update(Article).where(Article.id == target_id).values(
-                likes_count=likes, dislikes_count=dislikes,
+            stmt = (
+                sa_update(Article)
+                .where(Article.id == target_id)
+                .values(
+                    likes_count=likes,
+                    dislikes_count=dislikes,
+                )
             )
             await self._session.execute(stmt)
         elif target_type == "comment":
@@ -84,14 +93,18 @@ class ReactionService:
                 return
             ac = await self._session.get(ArticleComment, comment_id)
             if ac:
-                stmt = sa_update(ArticleComment).where(
-                    ArticleComment.id == comment_id
-                ).values(likes_count=likes, dislikes_count=dislikes)
+                stmt = (
+                    sa_update(ArticleComment)
+                    .where(ArticleComment.id == comment_id)
+                    .values(likes_count=likes, dislikes_count=dislikes)
+                )
                 await self._session.execute(stmt)
             else:
                 sc = await self._session.get(SetComment, comment_id)
                 if sc:
-                    stmt = sa_update(SetComment).where(
-                        SetComment.id == comment_id
-                    ).values(likes_count=likes, dislikes_count=dislikes)
+                    stmt = (
+                        sa_update(SetComment)
+                        .where(SetComment.id == comment_id)
+                        .values(likes_count=likes, dislikes_count=dislikes)
+                    )
                     await self._session.execute(stmt)

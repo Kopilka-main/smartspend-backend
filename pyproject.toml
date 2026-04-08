@@ -15,8 +15,45 @@ dependencies = [
     "passlib[bcrypt]==1.7.4",
     "bcrypt==4.0.1",
     "python-multipart==0.0.20",
+    "aiofiles==24.1.0",
 ]
 
 [build-system]
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "T20",   # flake8-print
+    "RUF",   # ruff-specific
+]
+ignore = [
+    "E501",    # line length handled by formatter
+    "B008",    # do not perform function calls in argument defaults (FastAPI Depends)
+    "RUF001",  # ambiguous unicode chars (we use Cyrillic strings intentionally)
+    "RUF012",  # mutable class defaults (Pydantic models use list[] = [] by design)
+    "UP042",   # str+Enum → StrEnum (keep compat with sqlalchemy column types)
+    "UP046",   # Generic subclass (Pydantic needs Generic[T] pattern)
+    "SIM108",  # ternary operator (readability preference)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/app/models/*.py" = ["F821"]  # SQLAlchemy string forward references
+
+[tool.ruff.format]
+quote-style = "double"

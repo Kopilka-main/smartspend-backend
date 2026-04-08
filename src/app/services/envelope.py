@@ -2,12 +2,13 @@ import time
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, update as sa_update
+from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.envelope import Envelope
-from src.app.models.inventory_item import InventoryItem
 from src.app.models.inventory_group import InventoryGroupCategory
+from src.app.models.inventory_item import InventoryItem
 from src.app.models.set import Set
 from src.app.models.user import User
 from src.app.repositories.catalog import CatalogRepository
@@ -41,11 +42,12 @@ class EnvelopeService:
         s = await catalog_repo.get_by_id(set_id)
         if s is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Set not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Set not found",
             )
 
         total_amount = 0
-        for item in (s.items or []):
+        for item in s.items or []:
             bp = item.base_price or 0
             qty = item.qty or 1
             py = item.period_years or 0
@@ -54,9 +56,13 @@ class EnvelopeService:
                 total_amount += monthly
 
         envelope = Envelope(
-            user_id=user.id, category_id=s.category_id, set_id=set_id,
-            name=s.title, items_count=len(s.items or []),
-            amount=total_amount, envelope_type="consumable",
+            user_id=user.id,
+            category_id=s.category_id,
+            set_id=set_id,
+            name=s.title,
+            items_count=len(s.items or []),
+            amount=total_amount,
+            envelope_type="consumable",
         )
         envelope = await self._repo.create(envelope)
 
@@ -70,13 +76,19 @@ class EnvelopeService:
             bp = int(si.base_price) if si.base_price else (si.price or 0)
             py = si.period_years or 0
             inv_item = InventoryItem(
-                id=item_id, user_id=user.id, group_id=group_id,
-                type=si.item_type, name=si.name,
-                price=bp, set_id=set_id,
-                is_extra=True, paused=True,
+                id=item_id,
+                user_id=user.id,
+                group_id=group_id,
+                type=si.item_type,
+                name=si.name,
+                price=bp,
+                set_id=set_id,
+                is_extra=True,
+                paused=True,
                 qty=si.qty if si.item_type == "consumable" else None,
                 unit=si.unit if si.item_type == "consumable" else None,
-                daily_use=None, last_bought=None,
+                daily_use=None,
+                last_bought=None,
                 wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
             )
             inv_items.append(inv_item)
@@ -84,9 +96,7 @@ class EnvelopeService:
         if inv_items:
             await inv_repo.bulk_create(inv_items)
 
-        stmt = sa_update(Set).where(Set.id == set_id).values(
-            users_count=Set.users_count + 1
-        )
+        stmt = sa_update(Set).where(Set.id == set_id).values(users_count=Set.users_count + 1)
         await self._session.execute(stmt)
         await self._session.commit()
         return EnvelopeResponse.from_orm_obj(envelope, source=s.source)
@@ -111,9 +121,7 @@ class EnvelopeService:
 
         await self._repo.delete_by_user_set(user.id, set_id)
 
-        stmt = sa_update(Set).where(Set.id == set_id).values(
-            users_count=Set.users_count - 1
-        )
+        stmt = sa_update(Set).where(Set.id == set_id).values(users_count=Set.users_count - 1)
         await self._session.execute(stmt)
         await self._session.commit()
 
@@ -121,15 +129,14 @@ class EnvelopeService:
         envelope = await self._repo.get_by_id(envelope_id)
         if envelope is None or envelope.user_id != user_id:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Envelope not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Envelope not found",
             )
         await self._repo.delete_envelope(envelope_id)
         await self._session.commit()
 
     async def _resolve_group(self, category_id: str) -> str:
-        stmt = select(InventoryGroupCategory.group_id).where(
-            InventoryGroupCategory.category_id == category_id
-        )
+        stmt = select(InventoryGroupCategory.group_id).where(InventoryGroupCategory.category_id == category_id)
         result = await self._session.execute(stmt)
         row = result.scalar_one_or_none()
         return row if row else "g8"

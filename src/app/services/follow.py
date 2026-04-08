@@ -18,7 +18,8 @@ class FollowService:
     async def follow(self, follower: User, following_id: uuid.UUID) -> None:
         if follower.id == following_id:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot follow yourself",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot follow yourself",
             )
 
         user_repo = UserRepository(self._session)
@@ -33,12 +34,15 @@ class FollowService:
         await self._repo.create(follower.id, following_id)
 
         notif_repo = NotificationRepository(self._session)
-        await notif_repo.create(Notification(
-            user_id=following_id, type="activity",
-            title="Новый подписчик",
-            description=f"На вас подписался {follower.display_name}",
-            payload=f"/author/{follower.id}",
-        ))
+        await notif_repo.create(
+            Notification(
+                user_id=following_id,
+                type="activity",
+                title="Новый подписчик",
+                description=f"На вас подписался {follower.display_name}",
+                payload=f"/author/{follower.id}",
+            )
+        )
 
         await self._session.commit()
 
@@ -46,7 +50,8 @@ class FollowService:
         exists = await self._repo.exists(follower_id, following_id)
         if not exists:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Not following this user",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Not following this user",
             )
         await self._repo.remove(follower_id, following_id)
         await self._session.commit()

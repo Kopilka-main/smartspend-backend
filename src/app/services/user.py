@@ -15,7 +15,6 @@ from src.app.repositories.follow import FollowRepository
 from src.app.repositories.user import UserRepository
 from src.app.schemas.auth import UserResponse
 from src.app.schemas.user import (
-    AuthorInfo,
     DeleteAccountRequest,
     ProfileSummary,
     ProfileUpdate,
@@ -51,9 +50,7 @@ class UserService:
         if data.username is not None:
             existing = await self._repo.get_by_username(data.username)
             if existing and existing.id != user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
-                )
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
             updates["username"] = data.username
         if data.bio is not None:
             updates["bio"] = data.bio
@@ -114,9 +111,7 @@ class UserService:
 
     async def delete_account(self, user: User, data: DeleteAccountRequest) -> None:
         if not verify_password(data.password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect password"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect password")
         await self._repo.update_fields(
             user.id,
             status=UserStatus.PENDING_DELETION,
@@ -126,9 +121,7 @@ class UserService:
 
     async def cancel_deletion(self, user: User) -> UserResponse:
         if user.status != UserStatus.PENDING_DELETION:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not pending deletion"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not pending deletion")
         await self._repo.update_fields(
             user.id,
             status=UserStatus.UNVERIFIED,
@@ -138,9 +131,7 @@ class UserService:
         refreshed = await self._repo.get_by_id(user.id)
         return _user_to_response(refreshed)
 
-    async def get_public_profile(
-        self, target_id: uuid.UUID, viewer_id: uuid.UUID | None = None
-    ) -> UserPublicResponse:
+    async def get_public_profile(self, target_id: uuid.UUID, viewer_id: uuid.UUID | None = None) -> UserPublicResponse:
         user = await self._repo.get_by_id(target_id)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

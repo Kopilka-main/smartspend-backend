@@ -20,16 +20,12 @@ async def get_current_user(
 ) -> User:
     payload = decode_token(credentials.credentials)
     if payload is None or payload.get("type") != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
     try:
         user_id = uuid.UUID(payload["sub"])
     except (KeyError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload") from exc
 
     repo = UserRepository(session)
     user = await repo.get_by_id(user_id)
@@ -40,9 +36,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
     if user.deleted_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Account pending deletion"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending deletion")
 
     return user
 

@@ -10,7 +10,8 @@ router = APIRouter(prefix="/feed", tags=["feed"])
 
 @router.get("", response_model=ApiResponse[list[FeedItem]])
 async def get_feed(
-    user: CurrentUser, session: Session,
+    user: CurrentUser,
+    session: Session,
     type: str = Query("all", alias="type"),
     mode: str | None = Query(None),
     category_id: str | None = Query(None, alias="cat"),
@@ -21,9 +22,14 @@ async def get_feed(
 ):
     service = FeedService(session)
     items, total = await service.get_feed(
-        user_id=user.id, feed_type=type, mode=mode,
-        category_id=category_id, search=search,
-        sort=sort, limit=limit, offset=offset,
+        user_id=user.id,
+        feed_type=type,
+        mode=mode,
+        category_id=category_id,
+        search=search,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return ApiResponse(
         data=items,

@@ -30,8 +30,12 @@ async def list_articles(
 ):
     service = ArticleService(session)
     items, total = await service.list_published(
-        category_id=category_id, author_id=author_id,
-        search=search, sort=sort, limit=limit, offset=offset,
+        category_id=category_id,
+        author_id=author_id,
+        search=search,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return ApiResponse(
         data=items,
@@ -41,7 +45,8 @@ async def list_articles(
 
 @router.get("/my", response_model=ApiResponse[list[ArticleListItem]])
 async def list_my_articles(
-    user: CurrentUser, session: Session,
+    user: CurrentUser,
+    session: Session,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -93,7 +98,8 @@ async def mark_read(article_id: str, session: Session):
 
 @router.get("/{article_id}/comments", response_model=ApiResponse[list[ArticleCommentResponse]])
 async def list_comments(
-    article_id: str, session: Session,
+    article_id: str,
+    session: Session,
     sort: str = Query("new"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),

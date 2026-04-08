@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
 from src.app.core.dependencies import CurrentUser, Session
-from src.app.models.user import User
 from src.app.schemas.auth import (
     AuthResponse,
     ChangePasswordRequest,

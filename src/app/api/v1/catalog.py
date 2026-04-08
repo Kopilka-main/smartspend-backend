@@ -28,8 +28,13 @@ async def list_sets(
 ):
     service = CatalogService(session)
     items, total = await service.list_sets(
-        category_id=category_id, source=source, set_type=set_type,
-        search=search, sort=sort, limit=limit, offset=offset,
+        category_id=category_id,
+        source=source,
+        set_type=set_type,
+        search=search,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return ApiResponse(
         data=items,
@@ -41,7 +46,7 @@ async def list_sets(
 async def list_my_sets(user: CurrentUser, session: Session):
     """Return sets created by the current user."""
     service = CatalogService(session)
-    items, total = await service.list_by_author(user.id)
+    items, _total = await service.list_by_author(user.id)
     return ApiResponse(data=items)
 
 
@@ -79,7 +84,8 @@ async def delete_set(set_id: str, user: CurrentUser, session: Session):
 
 @router.get("/{set_id}/comments", response_model=ApiResponse[list[SetCommentResponse]])
 async def list_comments(
-    set_id: str, session: Session,
+    set_id: str,
+    session: Session,
     sort: str = Query("new"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),

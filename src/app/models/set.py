@@ -24,9 +24,7 @@ class Set(Base):
 
     id: Mapped[str] = mapped_column(String(20), primary_key=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
-    category_id: Mapped[str] = mapped_column(
-        String(20), ForeignKey("envelope_categories.id"), nullable=False
-    )
+    category_id: Mapped[str] = mapped_column(String(20), ForeignKey("envelope_categories.id"), nullable=False)
     set_type: Mapped[str] = mapped_column(String(20), nullable=False, default="base")
     color: Mapped[str] = mapped_column(String(7), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -47,9 +45,7 @@ class Set(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    items: Mapped[list["SetItem"]] = relationship(
-        back_populates="set", cascade="all, delete-orphan", lazy="selectin"
-    )
+    items: Mapped[list["SetItem"]] = relationship(back_populates="set", cascade="all, delete-orphan", lazy="selectin")
     comments: Mapped[list["SetComment"]] = relationship(
         back_populates="set", cascade="all, delete-orphan", lazy="noload"
     )

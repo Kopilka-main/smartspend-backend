@@ -64,9 +64,7 @@ class AuthService:
     async def register(self, data: RegisterRequest) -> tuple[UserResponse, TokenPair]:
         existing = await self._repo.get_by_email(data.email)
         if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
         user = User(
             email=data.email,
@@ -85,19 +83,13 @@ class AuthService:
     async def login(self, data: LoginRequest) -> tuple[UserResponse, TokenPair]:
         user = await self._repo.get_by_email(data.email)
         if user is None or not verify_password(data.password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
         if user.status == UserStatus.SUSPENDED:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
         if user.deleted_at is not None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Account pending deletion"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending deletion")
 
         tokens = self._issue_tokens(user.id)
         return _user_to_response(user), tokens
@@ -105,33 +97,23 @@ class AuthService:
     async def refresh(self, refresh_token: str) -> TokenPair:
         payload = decode_token(refresh_token)
         if payload is None or payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
         try:
             user_id = uuid.UUID(payload["sub"])
         except (KeyError, ValueError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
-            ) from exc
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload") from exc
 
         user = await self._repo.get_by_id(user_id)
         if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
         return self._issue_tokens(user.id)
 
     async def change_password(self, user: User, data: ChangePasswordRequest) -> None:
         if not verify_password(data.current_password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
-            )
-        await self._repo.update_fields(
-            user.id, password_hash=hash_password(data.new_password)
-        )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+        await self._repo.update_fields(user.id, password_hash=hash_password(data.new_password))
         await self._session.commit()
 
     @staticmethod

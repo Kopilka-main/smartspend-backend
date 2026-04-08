@@ -23,9 +23,7 @@ class InventoryRepository:
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_by_user(
-        self, user_id: uuid.UUID, group_id: str | None = None
-    ) -> list[InventoryItem]:
+    async def list_by_user(self, user_id: uuid.UUID, group_id: str | None = None) -> list[InventoryItem]:
         stmt = (
             select(InventoryItem)
             .options(

@@ -16,12 +16,16 @@ def _author_info(user) -> AuthorInfo | None:
         return None
     if getattr(user, "deleted_at", None) is not None:
         return AuthorInfo(
-            id=user.id, display_name="👻 Привидение",
-            initials="👻", color=user.color,
+            id=user.id,
+            display_name="👻 Привидение",
+            initials="👻",
+            color=user.color,
         )
     return AuthorInfo(
-        id=user.id, display_name=user.display_name,
-        initials=user.initials, color=user.color,
+        id=user.id,
+        display_name=user.display_name,
+        initials=user.initials,
+        color=user.color,
         avatar_url=user.avatar_url,
     )
 
@@ -31,24 +35,39 @@ class FeedService:
         self._session = session
 
     async def get_feed(
-        self, user_id: uuid.UUID | None = None,
-        feed_type: str = "all", mode: str | None = None,
-        category_id: str | None = None, search: str | None = None,
-        sort: str = "newest", limit: int = 20, offset: int = 0,
+        self,
+        user_id: uuid.UUID | None = None,
+        feed_type: str = "all",
+        mode: str | None = None,
+        category_id: str | None = None,
+        search: str | None = None,
+        sort: str = "newest",
+        limit: int = 20,
+        offset: int = 0,
     ) -> tuple[list[FeedItem], int]:
         items: list[FeedItem] = []
         total = 0
 
         if feed_type in ("all", "articles"):
             a_items, a_total = await self._get_articles(
-                user_id, mode, category_id, search, sort, limit, offset,
+                user_id,
+                mode,
+                category_id,
+                search,
+                sort,
+                limit,
+                offset,
             )
             items.extend(a_items)
             total += a_total
 
         if feed_type in ("all", "sets"):
             s_items, s_total = await self._get_sets(
-                category_id, search, sort, limit, offset,
+                category_id,
+                search,
+                sort,
+                limit,
+                offset,
             )
             items.extend(s_items)
             total += s_total
@@ -61,11 +80,16 @@ class FeedService:
         return items[:limit], total
 
     async def _get_articles(
-        self, user_id, mode, category_id, search, sort, limit, offset,
+        self,
+        user_id,
+        mode,
+        category_id,
+        search,
+        sort,
+        limit,
+        offset,
     ) -> tuple[list[FeedItem], int]:
-        base = select(Article).options(
-            selectinload(Article.author)
-        ).where(Article.status == "published")
+        base = select(Article).options(selectinload(Article.author)).where(Article.status == "published")
 
         if mode == "subscriptions" and user_id:
             following_ids = select(Follow.following_id).where(Follow.follower_id == user_id)
@@ -90,21 +114,35 @@ class FeedService:
 
         return [
             FeedItem(
-                id=a.id, type="article", title=a.title, preview=a.preview,
-                category_id=a.category_id, published_at=a.published_at,
-                created_at=a.created_at, author=_author_info(a.author),
-                views_count=a.views_count, likes_count=a.likes_count,
-                dislikes_count=a.dislikes_count, article_type=a.article_type,
+                id=a.id,
+                type="article",
+                title=a.title,
+                preview=a.preview,
+                category_id=a.category_id,
+                published_at=a.published_at,
+                created_at=a.created_at,
+                author=_author_info(a.author),
+                views_count=a.views_count,
+                likes_count=a.likes_count,
+                dislikes_count=a.dislikes_count,
+                article_type=a.article_type,
             )
             for a in result.scalars().unique().all()
         ], total
 
     async def _get_sets(
-        self, category_id, search, sort, limit, offset,
+        self,
+        category_id,
+        search,
+        sort,
+        limit,
+        offset,
     ) -> tuple[list[FeedItem], int]:
-        base = select(Set).options(
-            selectinload(Set.items), selectinload(Set.author)
-        ).where(Set.is_private.is_(False), Set.hidden.is_(False))
+        base = (
+            select(Set)
+            .options(selectinload(Set.items), selectinload(Set.author))
+            .where(Set.is_private.is_(False), Set.hidden.is_(False))
+        )
 
         if category_id and category_id != "all":
             base = base.where(Set.category_id == category_id)
@@ -125,12 +163,19 @@ class FeedService:
 
         return [
             FeedItem(
-                id=s.id, type="set", title=s.title, preview=s.description,
-                category_id=s.category_id, published_at=s.added,
-                created_at=s.created_at, author=_author_info(s.author),
+                id=s.id,
+                type="set",
+                title=s.title,
+                preview=s.description,
+                category_id=s.category_id,
+                published_at=s.added,
+                created_at=s.created_at,
+                author=_author_info(s.author),
                 items_count=len(s.items) if s.items else 0,
-                amount=s.amount, users_count=s.users_count,
-                source=s.source, color=s.color,
+                amount=s.amount,
+                users_count=s.users_count,
+                source=s.source,
+                color=s.color,
             )
             for s in result.scalars().unique().all()
         ], total
