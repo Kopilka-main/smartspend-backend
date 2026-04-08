@@ -114,7 +114,11 @@ class FeedService:
         offset,
         article_type: str | None = None,
     ) -> tuple[list[FeedItem], int]:
-        base = select(Article).options(selectinload(Article.author)).where(Article.status == "published")
+        base = (
+            select(Article)
+            .options(selectinload(Article.author), selectinload(Article.comments))
+            .where(Article.status == "published")
+        )
 
         if article_type:
             base = base.where(Article.article_type == article_type)
@@ -153,6 +157,13 @@ class FeedService:
 
         base = base.limit(limit).offset(offset)
         result = await self._session.execute(base)
+        articles = list(result.scalars().unique().all())
+
+        set_ids = {a.linked_set_id for a in articles if a.linked_set_id}
+        set_titles: dict[str, str] = {}
+        if set_ids:
+            st = await self._session.execute(select(Set.id, Set.title).where(Set.id.in_(set_ids)))
+            set_titles = dict(st.all())
 
         return [
             FeedItem(
@@ -167,9 +178,12 @@ class FeedService:
                 views_count=a.views_count,
                 likes_count=a.likes_count,
                 dislikes_count=a.dislikes_count,
+                comments_count=len(a.comments) if a.comments else 0,
                 article_type=a.article_type,
+                linked_set_id=a.linked_set_id,
+                linked_set_title=set_titles.get(a.linked_set_id) if a.linked_set_id else None,
             )
-            for a in result.scalars().unique().all()
+            for a in articles
         ], total
 
     async def _get_sets(

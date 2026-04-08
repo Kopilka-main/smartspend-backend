@@ -17,7 +17,10 @@ class FeedItem(CamelModel):
     views_count: int | None = None
     likes_count: int | None = None
     dislikes_count: int | None = None
+    comments_count: int | None = None
     article_type: str | None = None
+    linked_set_id: str | None = None
+    linked_set_title: str | None = None
 
     items_count: int | None = None
     amount: int | None = None
