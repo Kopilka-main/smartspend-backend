@@ -1,11 +1,14 @@
 import uuid
+from datetime import date, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.app.models.article import Article
+from src.app.models.envelope import Envelope
 from src.app.models.follow import Follow
+from src.app.models.reaction import Reaction
 from src.app.models.set import Set
 from src.app.schemas.feed import FeedItem
 from src.app.schemas.user import AuthorInfo
@@ -30,6 +33,14 @@ def _author_info(user) -> AuthorInfo | None:
     )
 
 
+def _apply_popular_period(base, sort_val: str, date_col):
+    if sort_val == "popular_7d":
+        return base.where(date_col >= date.today() - timedelta(days=7))
+    if sort_val == "popular_30d":
+        return base.where(date_col >= date.today() - timedelta(days=30))
+    return base
+
+
 class FeedService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -51,7 +62,11 @@ class FeedService:
         fetch_limit = limit + offset if feed_type == "all" else limit
         fetch_offset = 0 if feed_type == "all" else offset
 
-        if feed_type in ("all", "articles"):
+        include_articles = feed_type in ("all", "articles")
+        include_sets = feed_type in ("all", "sets")
+        include_coupons = feed_type in ("all", "coupons")
+
+        if include_articles or include_coupons:
             a_items, a_total = await self._get_articles(
                 user_id,
                 mode,
@@ -60,12 +75,15 @@ class FeedService:
                 sort,
                 fetch_limit,
                 fetch_offset,
+                article_type="coupon" if feed_type == "coupons" else None,
             )
             items.extend(a_items)
             total += a_total
 
-        if feed_type in ("all", "sets"):
+        if include_sets and feed_type != "coupons":
             s_items, s_total = await self._get_sets(
+                user_id,
+                mode,
                 category_id,
                 search,
                 sort,
@@ -75,7 +93,7 @@ class FeedService:
             items.extend(s_items)
             total += s_total
 
-        if sort == "popular":
+        if sort.startswith("popular"):
             items.sort(key=lambda x: (x.likes_count or 0) + (x.users_count or 0), reverse=True)
         else:
             items.sort(key=lambda x: x.created_at, reverse=True)
@@ -93,12 +111,24 @@ class FeedService:
         sort,
         limit,
         offset,
+        article_type: str | None = None,
     ) -> tuple[list[FeedItem], int]:
         base = select(Article).options(selectinload(Article.author)).where(Article.status == "published")
+
+        if article_type:
+            base = base.where(Article.article_type == article_type)
 
         if mode == "subscriptions" and user_id:
             following_ids = select(Follow.following_id).where(Follow.follower_id == user_id)
             base = base.where(Article.author_id.in_(following_ids))
+        elif mode == "liked" and user_id:
+            liked_ids = select(Reaction.target_id).where(
+                Reaction.user_id == user_id, Reaction.target_type == "article", Reaction.type == "like"
+            )
+            base = base.where(Article.id.in_(liked_ids))
+        elif mode == "my_sets" and user_id:
+            user_set_ids = select(Envelope.set_id).where(Envelope.user_id == user_id)
+            base = base.where(Article.linked_set_id.in_(user_set_ids))
 
         if category_id and category_id != "all":
             base = base.where(Article.category_id == category_id)
@@ -106,10 +136,13 @@ class FeedService:
             pattern = f"%{search.strip()}%"
             base = base.where(Article.title.ilike(pattern) | Article.preview.ilike(pattern))
 
+        if sort.startswith("popular"):
+            base = _apply_popular_period(base, sort, Article.published_at)
+
         count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
         total = (await self._session.execute(count_q)).scalar_one()
 
-        if sort == "popular":
+        if sort.startswith("popular"):
             base = base.order_by(Article.likes_count.desc())
         else:
             base = base.order_by(Article.published_at.desc().nullslast())
@@ -137,6 +170,8 @@ class FeedService:
 
     async def _get_sets(
         self,
+        user_id,
+        mode,
         category_id,
         search,
         sort,
@@ -149,16 +184,31 @@ class FeedService:
             .where(Set.is_private.is_(False), Set.hidden.is_(False))
         )
 
+        if mode == "subscriptions" and user_id:
+            following_ids = select(Follow.following_id).where(Follow.follower_id == user_id)
+            base = base.where(Set.author_id.in_(following_ids))
+        elif mode == "liked" and user_id:
+            liked_ids = select(Reaction.target_id).where(
+                Reaction.user_id == user_id, Reaction.target_type == "set", Reaction.type == "like"
+            )
+            base = base.where(Set.id.in_(liked_ids))
+        elif mode == "my_sets" and user_id:
+            user_set_ids = select(Envelope.set_id).where(Envelope.user_id == user_id)
+            base = base.where(Set.id.in_(user_set_ids))
+
         if category_id and category_id != "all":
             base = base.where(Set.category_id == category_id)
         if search and search.strip():
             pattern = f"%{search.strip()}%"
             base = base.where(Set.title.ilike(pattern) | Set.description.ilike(pattern))
 
+        if sort.startswith("popular"):
+            base = _apply_popular_period(base, sort, Set.created_at)
+
         count_q = select(func.count()).select_from(base.with_only_columns(Set.id).subquery())
         total = (await self._session.execute(count_q)).scalar_one()
 
-        if sort == "popular":
+        if sort.startswith("popular"):
             base = base.order_by(Set.users_count.desc())
         else:
             base = base.order_by(Set.created_at.desc())

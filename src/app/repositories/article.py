@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, timedelta
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,12 +50,19 @@ class ArticleRepository:
             pattern = f"%{search.strip()}%"
             base = base.where(Article.title.ilike(pattern) | Article.preview.ilike(pattern))
 
-        count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
-        total = (await self._session.execute(count_q)).scalar_one()
-
-        if sort == "popular":
+        if sort.startswith("popular"):
+            if sort == "popular_7d":
+                week_ago = date.today() - timedelta(days=7)
+                base = base.where(Article.published_at >= week_ago)
+            elif sort == "popular_30d":
+                month_ago = date.today() - timedelta(days=30)
+                base = base.where(Article.published_at >= month_ago)
+            count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
+            total = (await self._session.execute(count_q)).scalar_one()
             base = base.order_by(Article.likes_count.desc())
         else:
+            count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
+            total = (await self._session.execute(count_q)).scalar_one()
             base = base.order_by(Article.published_at.desc().nullslast(), Article.created_at.desc())
 
         base = base.limit(limit).offset(offset)

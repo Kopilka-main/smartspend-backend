@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -41,19 +43,19 @@ class CatalogRepository:
             pattern = f"%{search.strip()}%"
             base = base.where(Set.title.ilike(pattern) | Set.description.ilike(pattern))
 
-        count_q = select(func.count()).select_from(
-            select(Set.id).where(Set.is_private.is_(False), Set.hidden.is_(False)).correlate(None).subquery()
-        )
-        if category_id and category_id != "all":
+        if sort.startswith("popular"):
+            if sort == "popular_7d":
+                week_ago = date.today() - timedelta(days=7)
+                base = base.where(Set.created_at >= week_ago)
+            elif sort == "popular_30d":
+                month_ago = date.today() - timedelta(days=30)
+                base = base.where(Set.created_at >= month_ago)
             count_q = select(func.count()).select_from(base.with_only_columns(Set.id).subquery())
-        else:
-            count_q = select(func.count()).select_from(base.with_only_columns(Set.id).subquery())
-
-        total = (await self._session.execute(count_q)).scalar_one()
-
-        if sort == "popular":
+            total = (await self._session.execute(count_q)).scalar_one()
             base = base.order_by(Set.users_count.desc())
         else:
+            count_q = select(func.count()).select_from(base.with_only_columns(Set.id).subquery())
+            total = (await self._session.execute(count_q)).scalar_one()
             base = base.order_by(Set.created_at.desc())
 
         base = base.limit(limit).offset(offset)
