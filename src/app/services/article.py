@@ -12,6 +12,7 @@ from src.app.models.article_set_link import ArticleSetLink
 from src.app.models.user import User
 from src.app.repositories.article import ArticleRepository
 from src.app.schemas.article import (
+    ArticleBlockResponse,
     ArticleCommentCreate,
     ArticleCommentResponse,
     ArticleCreate,
@@ -116,15 +117,15 @@ class ArticleService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
         resp = _article_to_response(a)
         resp.blocks = [
-            {
-                "id": b.id,
-                "position": b.position,
-                "type": b.type,
-                "text": b.text,
-                "html": b.html,
-                "items": b.items,
-                "title": b.title,
-            }
+            ArticleBlockResponse(
+                id=b.id,
+                position=b.position,
+                type=b.type,
+                text=b.text,
+                html=b.html,
+                items=b.items,
+                title=b.title,
+            )
             for b in (a.blocks or [])
         ]
         return resp
@@ -242,6 +243,9 @@ class ArticleService:
         await self._session.commit()
 
     async def increment_views(self, article_id: str) -> None:
+        a = await self._repo.get_by_id(article_id)
+        if a is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
         stmt = sa_update(Article).where(Article.id == article_id).values(views_count=Article.views_count + 1)
         await self._session.execute(stmt)
         await self._session.commit()

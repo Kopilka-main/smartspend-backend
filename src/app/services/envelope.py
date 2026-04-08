@@ -2,7 +2,7 @@ import time
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -114,7 +114,7 @@ class EnvelopeService:
 
         await self._repo.delete_by_user_set(user.id, set_id)
 
-        stmt = sa_update(Set).where(Set.id == set_id).values(users_count=Set.users_count - 1)
+        stmt = sa_update(Set).where(Set.id == set_id).values(users_count=func.greatest(0, Set.users_count - 1))
         await self._session.execute(stmt)
         await self._session.commit()
 
