@@ -14,13 +14,11 @@ class FeedItem(CamelModel):
     created_at: datetime
     author: AuthorInfo | None = None
 
-    # article-specific
     views_count: int | None = None
     likes_count: int | None = None
     dislikes_count: int | None = None
     article_type: str | None = None
 
-    # set-specific
     items_count: int | None = None
     amount: int | None = None
     users_count: int | None = None

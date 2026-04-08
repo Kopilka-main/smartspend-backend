@@ -48,6 +48,9 @@ class FeedService:
         items: list[FeedItem] = []
         total = 0
 
+        fetch_limit = limit + offset if feed_type == "all" else limit
+        fetch_offset = 0 if feed_type == "all" else offset
+
         if feed_type in ("all", "articles"):
             a_items, a_total = await self._get_articles(
                 user_id,
@@ -55,8 +58,8 @@ class FeedService:
                 category_id,
                 search,
                 sort,
-                limit,
-                offset,
+                fetch_limit,
+                fetch_offset,
             )
             items.extend(a_items)
             total += a_total
@@ -66,8 +69,8 @@ class FeedService:
                 category_id,
                 search,
                 sort,
-                limit,
-                offset,
+                fetch_limit,
+                fetch_offset,
             )
             items.extend(s_items)
             total += s_total
@@ -77,6 +80,8 @@ class FeedService:
         else:
             items.sort(key=lambda x: x.created_at, reverse=True)
 
+        if feed_type == "all":
+            return items[offset : offset + limit], total
         return items[:limit], total
 
     async def _get_articles(

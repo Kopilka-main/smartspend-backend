@@ -77,15 +77,10 @@ class ReactionService:
         dislikes = await self._repo.count(target_type, target_id, "dislike")
 
         if target_type == "article":
-            stmt = (
-                sa_update(Article)
-                .where(Article.id == target_id)
-                .values(
-                    likes_count=likes,
-                    dislikes_count=dislikes,
-                )
-            )
+            stmt = sa_update(Article).where(Article.id == target_id).values(likes_count=likes, dislikes_count=dislikes)
             await self._session.execute(stmt)
+        elif target_type == "set":
+            pass
         elif target_type == "comment":
             try:
                 comment_id = int(target_id)

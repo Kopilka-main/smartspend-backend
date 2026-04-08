@@ -1,5 +1,3 @@
-"""V1 API router — aggregates all sub-routers."""
-
 from fastapi import APIRouter
 
 from src.app.api.v1.articles import router as articles_router

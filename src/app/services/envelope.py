@@ -110,14 +110,7 @@ class EnvelopeService:
             )
 
         inv_repo = InventoryRepository(self._session)
-        items = await inv_repo.list_by_user(user.id)
-        set_items = [i for i in items if i.set_id == set_id]
-
-        for item in set_items:
-            if item.paused:
-                await inv_repo.delete_item(item.id)
-            else:
-                await inv_repo.update_fields(item.id, paused=True)
+        await inv_repo.delete_paused_by_set(user.id, set_id)
 
         await self._repo.delete_by_user_set(user.id, set_id)
 

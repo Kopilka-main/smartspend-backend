@@ -23,30 +23,20 @@ from src.app.schemas.user import AuthorInfo
 
 
 def _compute_monthly(item) -> Decimal:
-    """Рассчитать месячную стоимость владения позицией.
-
-    wear: price / (wearLifeWeeks / 4.33)
-    consumable: если есть qty и dailyUse, то price * (dailyUse * 30.44 / qty)
-                иначе просто price (считаем что покупается раз в месяц)
-    fallback на basePrice/periodYears если заданы.
-    """
     price = getattr(item, "price", 0) or 0
     item_type = getattr(item, "item_type", "consumable")
 
-    # wear: цена / срок в месяцах
     if item_type == "wear":
         weeks = getattr(item, "wear_life_weeks", None)
         if weeks and weeks > 0:
             months = Decimal(weeks) / Decimal("4.33")
             return round(Decimal(price) / months, 2)
-        # fallback на basePrice/periodYears
         bp = getattr(item, "base_price", None)
         py = getattr(item, "period_years", None)
         if bp and py and py > 0:
             return round(Decimal(bp) / (Decimal(py) * 12), 2)
         return Decimal("0")
 
-    # consumable: если есть расход в день и объем, считаем
     daily = getattr(item, "daily_use", None)
     qty = getattr(item, "qty", None)
     if daily and qty and daily > 0 and qty > 0:
@@ -54,14 +44,12 @@ def _compute_monthly(item) -> Decimal:
         if days_supply > 0:
             return round(Decimal(price) / (days_supply / Decimal("30.44")), 2)
 
-    # fallback на basePrice/periodYears
     bp = getattr(item, "base_price", None)
     py = getattr(item, "period_years", None)
     if bp and py and py > 0:
         q = Decimal(str(qty)) if qty else Decimal("1")
         return round((Decimal(bp) * q) / (Decimal(py) * 12), 2)
 
-    # последний fallback: просто price как месячный расход
     if price > 0:
         return Decimal(price)
 
@@ -178,7 +166,6 @@ class CatalogService:
         return [_set_to_list_item(s) for s in sets], total
 
     async def list_by_author(self, author_id) -> tuple[list[SetListItem], int]:
-        """Return sets created by a specific user."""
         sets, total = await self._repo.list_by_author(author_id)
         return [_set_to_list_item(s) for s in sets], total
 
@@ -228,7 +215,7 @@ class CatalogService:
             ]
             await self._repo.add_items(set_items)
 
-        total = sum(int(_compute_monthly(i)) for i in (s.items or [])) if False else 0
+        total = 0
         if data.items:
             await self._session.commit()
             self._session.expire_all()

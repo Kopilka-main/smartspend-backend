@@ -192,7 +192,6 @@ class InventoryService:
         await self._session.commit()
 
     async def add_photo(self, item_id: str, user_id: uuid.UUID, file: UploadFile) -> InventoryPhotoResponse:
-        """Save uploaded photo to disk and create DB record."""
         item = await self._repo.get_by_id(item_id)
         if item is None or item.user_id != user_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
