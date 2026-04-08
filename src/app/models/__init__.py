@@ -1,5 +1,6 @@
 from src.app.models.article import Article, ArticleBlock
 from src.app.models.article_comment import ArticleComment
+from src.app.models.article_read import ArticleRead
 from src.app.models.article_set_link import ArticleSetLink
 from src.app.models.enums import (
     ArticleStatus,
@@ -28,6 +29,7 @@ __all__ = [
     "Article",
     "ArticleBlock",
     "ArticleComment",
+    "ArticleRead",
     "ArticleSetLink",
     "ArticleStatus",
     "BlockType",

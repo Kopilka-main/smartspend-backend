@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Query
 
-from src.app.core.dependencies import CurrentUser, Session
+from src.app.core.dependencies import CurrentUser, OptionalUser, Session
 from src.app.schemas.article import (
     ArticleCommentCreate,
     ArticleCommentResponse,
@@ -90,9 +90,9 @@ async def delete_article(article_id: str, user: CurrentUser, session: Session):
 
 
 @router.post("/{article_id}/read", response_model=ApiResponse[None])
-async def mark_read(article_id: str, session: Session):
+async def mark_read(article_id: str, session: Session, user: OptionalUser):
     service = ArticleService(session)
-    await service.increment_views(article_id)
+    await service.mark_read(article_id, user.id if user else None)
     return ApiResponse(data=None)
 
 

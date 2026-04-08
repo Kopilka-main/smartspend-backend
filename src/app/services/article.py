@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.article import Article, ArticleBlock
 from src.app.models.article_comment import ArticleComment
+from src.app.models.article_read import ArticleRead
 from src.app.models.article_set_link import ArticleSetLink
 from src.app.models.set import Set
 from src.app.models.user import User
@@ -262,12 +263,18 @@ class ArticleService:
         await self._repo.delete_article(article_id)
         await self._session.commit()
 
-    async def increment_views(self, article_id: str) -> None:
+    async def mark_read(self, article_id: str, user_id: uuid.UUID | None = None) -> None:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
         stmt = sa_update(Article).where(Article.id == article_id).values(views_count=Article.views_count + 1)
         await self._session.execute(stmt)
+        if user_id:
+            existing = await self._session.execute(
+                select(ArticleRead).where(ArticleRead.user_id == user_id, ArticleRead.article_id == article_id)
+            )
+            if not existing.scalar_one_or_none():
+                self._session.add(ArticleRead(user_id=user_id, article_id=article_id))
         await self._session.commit()
 
     async def list_comments(

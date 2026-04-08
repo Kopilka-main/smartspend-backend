@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.app.models.article import Article
+from src.app.models.article_read import ArticleRead
 from src.app.models.envelope import Envelope
 from src.app.models.follow import Follow
 from src.app.models.reaction import Reaction
@@ -129,6 +130,9 @@ class FeedService:
         elif mode == "my_sets" and user_id:
             user_set_ids = select(Envelope.set_id).where(Envelope.user_id == user_id)
             base = base.where(Article.linked_set_id.in_(user_set_ids))
+        elif mode == "unread" and user_id:
+            read_ids = select(ArticleRead.article_id).where(ArticleRead.user_id == user_id)
+            base = base.where(Article.id.notin_(read_ids))
 
         if category_id and category_id != "all":
             base = base.where(Article.category_id == category_id)
