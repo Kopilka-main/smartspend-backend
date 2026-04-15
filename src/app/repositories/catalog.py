@@ -13,7 +13,13 @@ class CatalogRepository:
         self._session = session
 
     async def get_by_id(self, set_id: str) -> Set | None:
-        stmt = select(Set).options(selectinload(Set.items), selectinload(Set.author)).where(Set.id == set_id)
+        stmt = (
+            select(Set)
+            .options(
+                selectinload(Set.items), selectinload(Set.author), selectinload(Set.comments), selectinload(Set.photos)
+            )
+            .where(Set.id == set_id)
+        )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -29,7 +35,7 @@ class CatalogRepository:
     ) -> tuple[list[Set], int]:
         base = (
             select(Set)
-            .options(selectinload(Set.items), selectinload(Set.author))
+            .options(selectinload(Set.items), selectinload(Set.author), selectinload(Set.comments))
             .where(Set.is_private.is_(False), Set.hidden.is_(False))
         )
 
@@ -63,7 +69,11 @@ class CatalogRepository:
         return list(result.scalars().unique().all()), total
 
     async def list_by_author(self, author_id, limit: int = 50, offset: int = 0) -> tuple[list[Set], int]:
-        base = select(Set).options(selectinload(Set.items)).where(Set.author_id == author_id, Set.hidden.is_(False))
+        base = (
+            select(Set)
+            .options(selectinload(Set.items), selectinload(Set.author), selectinload(Set.comments))
+            .where(Set.author_id == author_id, Set.hidden.is_(False))
+        )
 
         count_q = select(func.count()).select_from(base.with_only_columns(Set.id).subquery())
         total = (await self._session.execute(count_q)).scalar_one()

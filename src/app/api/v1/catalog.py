@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, UploadFile
 
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.base import ApiResponse, PaginationMeta
@@ -7,6 +7,7 @@ from src.app.schemas.catalog import (
     SetCommentResponse,
     SetCreate,
     SetListItem,
+    SetPhotoResponse,
     SetResponse,
     SetUpdate,
 )
@@ -107,4 +108,17 @@ async def add_comment(set_id: str, body: SetCommentCreate, user: CurrentUser, se
 async def delete_comment(comment_id: int, user: CurrentUser, session: Session):
     service = CatalogService(session)
     await service.delete_comment(comment_id, user)
+    return ApiResponse(data=None)
+
+
+@router.post("/{set_id}/photos", response_model=ApiResponse[SetPhotoResponse], status_code=201)
+async def add_set_photo(set_id: str, file: UploadFile, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    return ApiResponse(data=await service.add_photo(set_id, user, file))
+
+
+@router.delete("/photos/{photo_id}", response_model=ApiResponse[None])
+async def delete_set_photo(photo_id: int, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    await service.delete_photo(photo_id, user)
     return ApiResponse(data=None)

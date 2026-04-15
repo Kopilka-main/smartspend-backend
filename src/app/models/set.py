@@ -40,6 +40,10 @@ class Set(Base):
     )
     about_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     about_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="published")
+    period: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    full_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    monthly: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -49,6 +53,7 @@ class Set(Base):
     comments: Mapped[list["SetComment"]] = relationship(
         back_populates="set", cascade="all, delete-orphan", lazy="noload"
     )
+    photos: Mapped[list["SetPhoto"]] = relationship(back_populates="set", cascade="all, delete-orphan", lazy="selectin")
     author: Mapped["User | None"] = relationship(lazy="selectin", foreign_keys=[author_id])
 
 

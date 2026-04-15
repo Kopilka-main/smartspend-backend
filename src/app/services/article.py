@@ -286,6 +286,7 @@ class ArticleService:
                 id=c.id,
                 article_id=c.article_id,
                 user_id=str(c.user_id) if c.user_id else None,
+                parent_id=c.parent_id,
                 initials=c.initials,
                 name=c.name,
                 text=c.text,
@@ -307,6 +308,7 @@ class ArticleService:
             initials=user.initials,
             name=user.display_name,
             text=data.text,
+            parent_id=data.parent_id,
         )
         comment = await self._repo.add_comment(comment)
         await self._session.commit()
@@ -314,6 +316,7 @@ class ArticleService:
             id=comment.id,
             article_id=comment.article_id,
             user_id=str(comment.user_id),
+            parent_id=comment.parent_id,
             initials=comment.initials,
             name=comment.name,
             text=comment.text,

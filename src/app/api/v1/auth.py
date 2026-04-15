@@ -45,8 +45,11 @@ async def logout(_: CurrentUser):
 
 
 @router.get("/me", response_model=ApiResponse[UserResponse])
-async def me(user: CurrentUser):
-    return ApiResponse(data=_user_to_response(user))
+async def me(user: CurrentUser, session: Session):
+    from src.app.repositories.follow import FollowRepository
+
+    fc = await FollowRepository(session).count_followers(user.id)
+    return ApiResponse(data=_user_to_response(user, followers_count=fc))
 
 
 @router.post("/change-password", response_model=ApiResponse[None])

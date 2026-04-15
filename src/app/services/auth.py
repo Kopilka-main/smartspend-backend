@@ -13,6 +13,7 @@ from src.app.core.security import (
 from src.app.models.enums import UserStatus
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
+from src.app.repositories.follow import FollowRepository
 from src.app.repositories.user import UserRepository
 from src.app.schemas.auth import (
     ChangePasswordRequest,
@@ -29,7 +30,7 @@ def _build_initials(display_name: str) -> str:
     return "".join(p[0] for p in parts if p)[:2].upper() or "??"
 
 
-def _user_to_response(user: User) -> UserResponse:
+def _user_to_response(user: User, followers_count: int = 0) -> UserResponse:
     finance_data = None
     if user.finance:
         finance_data = UserFinanceInline(
@@ -52,6 +53,7 @@ def _user_to_response(user: User) -> UserResponse:
         status=user.status,
         theme=user.theme,
         joined_at=user.joined_at,
+        followers_count=followers_count,
         finance=finance_data,
     )
 
@@ -92,7 +94,9 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending deletion")
 
         tokens = self._issue_tokens(user.id)
-        return _user_to_response(user), tokens
+        follow_repo = FollowRepository(self._session)
+        fc = await follow_repo.count_followers(user.id)
+        return _user_to_response(user, followers_count=fc), tokens
 
     async def refresh(self, refresh_token: str) -> TokenPair:
         payload = decode_token(refresh_token)

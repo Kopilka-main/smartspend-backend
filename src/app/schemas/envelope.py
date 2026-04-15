@@ -22,11 +22,12 @@ class EnvelopeResponse(CamelModel):
     envelope_type: str
     source: str | None = None
     period: str | None = None
+    paused: bool = False
     created_at: datetime
     updated_at: datetime
 
     @classmethod
-    def from_orm_obj(cls, e, source: str | None = None) -> "EnvelopeResponse":
+    def from_orm_obj(cls, e, source: str | None = None, paused: bool = False) -> "EnvelopeResponse":
         return cls(
             id=e.id,
             user_id=str(e.user_id),
@@ -38,6 +39,7 @@ class EnvelopeResponse(CamelModel):
             envelope_type=e.envelope_type,
             source=source,
             period=e.period,
+            paused=paused,
             created_at=e.created_at,
             updated_at=e.updated_at,
         )

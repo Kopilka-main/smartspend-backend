@@ -49,6 +49,7 @@ class UserResponse(CamelModel):
     status: str
     theme: str
     joined_at: datetime
+    followers_count: int = 0
     finance: UserFinanceInline | None = None
 
 

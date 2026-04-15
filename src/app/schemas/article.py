@@ -85,6 +85,7 @@ class ArticleCommentResponse(CamelModel):
     id: int
     article_id: str
     user_id: str | None = None
+    parent_id: int | None = None
     initials: str
     name: str
     text: str
@@ -95,6 +96,7 @@ class ArticleCommentResponse(CamelModel):
 
 class ArticleCommentCreate(CamelModel):
     text: str = Field(min_length=1, max_length=2000)
+    parent_id: int | None = None
 
 
 class ArticleSetLinkCreate(CamelModel):
