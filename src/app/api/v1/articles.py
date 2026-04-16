@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, UploadFile
 
 from src.app.core.dependencies import CurrentUser, OptionalUser, Session
 from src.app.schemas.article import (
@@ -8,6 +8,7 @@ from src.app.schemas.article import (
     ArticleCommentResponse,
     ArticleCreate,
     ArticleListItem,
+    ArticlePhotoResponse,
     ArticleResponse,
     ArticleSetLinkCreate,
     ArticleUpdate,
@@ -136,4 +137,17 @@ async def link_to_set(article_id: str, body: ArticleSetLinkCreate, user: Current
 async def unlink_from_set(article_id: str, user: CurrentUser, session: Session):
     service = ArticleService(session)
     await service.unlink_from_set(article_id, user)
+    return ApiResponse(data=None)
+
+
+@router.post("/{article_id}/photos", response_model=ApiResponse[ArticlePhotoResponse], status_code=201)
+async def add_article_photo(article_id: str, file: UploadFile, user: CurrentUser, session: Session):
+    service = ArticleService(session)
+    return ApiResponse(data=await service.add_photo(article_id, user, file))
+
+
+@router.delete("/photos/{photo_id}", response_model=ApiResponse[None])
+async def delete_article_photo(photo_id: int, user: CurrentUser, session: Session):
+    service = ArticleService(session)
+    await service.delete_photo(photo_id, user)
     return ApiResponse(data=None)

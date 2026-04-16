@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -37,6 +38,10 @@ class Article(Base):
     linked_set_id: Mapped[str | None] = mapped_column(
         String(20), ForeignKey("sets.id", ondelete="SET NULL"), nullable=True
     )
+    linked_set_ids: Mapped[list[str] | None] = mapped_column(ARRAY(String(20)), nullable=True)
+    is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    read_time: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -50,6 +55,9 @@ class Article(Base):
     )
     comments: Mapped[list["ArticleComment"]] = relationship(
         back_populates="article", cascade="all, delete-orphan", lazy="noload"
+    )
+    photos: Mapped[list["ArticlePhoto"]] = relationship(
+        back_populates="article", cascade="all, delete-orphan", lazy="selectin"
     )
     author: Mapped["User | None"] = relationship(lazy="selectin", foreign_keys=[author_id])
 

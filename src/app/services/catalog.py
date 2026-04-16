@@ -4,6 +4,7 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,6 +122,8 @@ def _set_to_response(s: Set, category_name: str | None = None, comments_count: i
         period=s.period,
         users_count=s.users_count,
         comments_count=comments_count,
+        likes_count=s.likes_count,
+        dislikes_count=s.dislikes_count,
         added=s.added,
         is_private=s.is_private,
         hidden=s.hidden,
@@ -171,6 +174,8 @@ def _set_to_list_item(s: Set, category_name: str | None = None, comments_count: 
         period=s.period,
         users_count=s.users_count,
         comments_count=comments_count,
+        likes_count=s.likes_count,
+        dislikes_count=s.dislikes_count,
         is_private=s.is_private,
         items_count=len(s.items) if s.items else 0,
         items=items,
@@ -475,4 +480,30 @@ class CatalogService:
         if file_path.exists():
             file_path.unlink()
         await self._session.delete(photo)
+        await self._session.commit()
+
+    async def bookmark(self, set_id: str, user_id) -> None:
+        from src.app.models.saved_set import SavedSet
+
+        s = await self._repo.get_by_id(set_id)
+        if s is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
+        existing = await self._session.execute(
+            select(SavedSet).where(SavedSet.user_id == user_id, SavedSet.set_id == set_id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already bookmarked")
+        self._session.add(SavedSet(user_id=user_id, set_id=set_id))
+        await self._session.commit()
+
+    async def unbookmark(self, set_id: str, user_id) -> None:
+        from sqlalchemy import delete as sa_delete
+
+        from src.app.models.saved_set import SavedSet
+
+        result = await self._session.execute(
+            sa_delete(SavedSet).where(SavedSet.user_id == user_id, SavedSet.set_id == set_id)
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not bookmarked")
         await self._session.commit()

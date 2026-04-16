@@ -122,3 +122,17 @@ async def delete_set_photo(photo_id: int, user: CurrentUser, session: Session):
     service = CatalogService(session)
     await service.delete_photo(photo_id, user)
     return ApiResponse(data=None)
+
+
+@router.post("/{set_id}/bookmark", response_model=ApiResponse[None], status_code=201)
+async def bookmark_set(set_id: str, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    await service.bookmark(set_id, user.id)
+    return ApiResponse(data=None)
+
+
+@router.delete("/{set_id}/bookmark", response_model=ApiResponse[None])
+async def unbookmark_set(set_id: str, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    await service.unbookmark(set_id, user.id)
+    return ApiResponse(data=None)

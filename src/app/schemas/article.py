@@ -25,6 +25,14 @@ class ArticleBlockCreate(CamelModel):
     title: str | None = Field(None, max_length=200)
 
 
+class ArticlePhotoResponse(CamelModel):
+    id: int
+    url: str
+    file_name: str
+    position: int = 0
+    created_at: datetime
+
+
 class ArticleResponse(CamelModel):
     id: str
     title: str
@@ -33,13 +41,18 @@ class ArticleResponse(CamelModel):
     preview: str | None = None
     published_at: date | None = None
     status: str
+    is_private: bool = False
+    read_time: int | None = None
+    tags: list[str] | None = None
     views_count: int
     likes_count: int
     dislikes_count: int
     comments_count: int = 0
     linked_set_id: str | None = None
+    linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
     blocks: list[ArticleBlockResponse] = []
+    photos: list[ArticlePhotoResponse] = []
     author: AuthorInfo | None = None
     created_at: datetime
     updated_at: datetime
@@ -53,11 +66,15 @@ class ArticleListItem(CamelModel):
     preview: str | None = None
     published_at: date | None = None
     status: str
+    is_private: bool = False
+    read_time: int | None = None
+    tags: list[str] | None = None
     views_count: int
     likes_count: int
     dislikes_count: int
     comments_count: int = 0
     linked_set_id: str | None = None
+    linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
     author: AuthorInfo | None = None
     created_at: datetime
@@ -68,7 +85,11 @@ class ArticleCreate(CamelModel):
     article_type: str | None = Field(None, max_length=50)
     category_id: str | None = Field(None, max_length=20)
     preview: str | None = Field(None, max_length=2000)
+    is_private: bool = False
+    read_time: int | None = Field(None, ge=1)
+    tags: list[str] | None = None
     linked_set_id: str | None = None
+    linked_set_ids: list[str] | None = None
     blocks: list[ArticleBlockCreate] = []
 
 
@@ -77,7 +98,11 @@ class ArticleUpdate(CamelModel):
     article_type: str | None = Field(None, max_length=50)
     category_id: str | None = Field(None, max_length=20)
     preview: str | None = Field(None, max_length=2000)
+    is_private: bool | None = None
+    read_time: int | None = Field(None, ge=1)
+    tags: list[str] | None = None
     linked_set_id: str | None = None
+    linked_set_ids: list[str] | None = None
     blocks: list[ArticleBlockCreate] | None = None
 
 

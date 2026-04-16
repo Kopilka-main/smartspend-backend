@@ -2,13 +2,14 @@ import time
 import uuid
 from datetime import date
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.article import Article, ArticleBlock
 from src.app.models.article_comment import ArticleComment
+from src.app.models.article_photo import ArticlePhoto
 from src.app.models.article_read import ArticleRead
 from src.app.models.article_set_link import ArticleSetLink
 from src.app.models.set import Set
@@ -20,6 +21,7 @@ from src.app.schemas.article import (
     ArticleCommentResponse,
     ArticleCreate,
     ArticleListItem,
+    ArticlePhotoResponse,
     ArticleResponse,
     ArticleSetLinkCreate,
     ArticleUpdate,
@@ -47,6 +49,12 @@ def _author_info(user) -> AuthorInfo | None:
 
 
 def _article_to_response(a: Article, set_title: str | None = None) -> ArticleResponse:
+    from src.app.schemas.article import ArticlePhotoResponse
+
+    photos = [
+        ArticlePhotoResponse(id=p.id, url=p.url, file_name=p.file_name, position=p.position, created_at=p.created_at)
+        for p in (a.photos or [])
+    ]
     return ArticleResponse(
         id=a.id,
         title=a.title,
@@ -55,13 +63,18 @@ def _article_to_response(a: Article, set_title: str | None = None) -> ArticleRes
         preview=a.preview,
         published_at=a.published_at,
         status=a.status,
+        is_private=a.is_private,
+        read_time=a.read_time,
+        tags=a.tags,
         views_count=a.views_count,
         likes_count=a.likes_count,
         dislikes_count=a.dislikes_count,
         comments_count=len(a.comments) if a.comments else 0,
         linked_set_id=a.linked_set_id,
+        linked_set_ids=a.linked_set_ids,
         linked_set_title=set_title,
         blocks=[],
+        photos=photos,
         author=_author_info(a.author),
         created_at=a.created_at,
         updated_at=a.updated_at,
@@ -77,11 +90,15 @@ def _article_to_list_item(a: Article, set_title: str | None = None) -> ArticleLi
         preview=a.preview,
         published_at=a.published_at,
         status=a.status,
+        is_private=a.is_private,
+        read_time=a.read_time,
+        tags=a.tags,
         views_count=a.views_count,
         likes_count=a.likes_count,
         dislikes_count=a.dislikes_count,
         comments_count=len(a.comments) if a.comments else 0,
         linked_set_id=a.linked_set_id,
+        linked_set_ids=a.linked_set_ids,
         linked_set_title=set_title,
         author=_author_info(a.author),
         created_at=a.created_at,
@@ -160,7 +177,11 @@ class ArticleService:
             article_type=data.article_type,
             category_id=data.category_id,
             preview=data.preview,
+            is_private=data.is_private,
+            read_time=data.read_time,
+            tags=data.tags,
             linked_set_id=data.linked_set_id,
+            linked_set_ids=data.linked_set_ids,
             status="draft",
         )
         await self._repo.create(article)
@@ -345,4 +366,57 @@ class ArticleService:
 
     async def unlink_from_set(self, article_id: str, user: User) -> None:
         await self._repo.unlink_from_set(article_id, user.id)
+        await self._session.commit()
+
+    async def add_photo(self, article_id: str, user: User, file: UploadFile) -> ArticlePhotoResponse:
+        from pathlib import Path
+
+        import aiofiles
+
+        a = await self._repo.get_by_id(article_id)
+        if a is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        if a.author_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your article")
+
+        allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+        if file.content_type not in allowed:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image type")
+
+        content = await file.read()
+        if len(content) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 5 MB)")
+
+        ext = Path(file.filename or "photo.jpg").suffix or ".jpg"
+        unique_name = f"{article_id}_{int(time.time() * 1000)}{ext}"
+        upload_dir = Path("/app/uploads/article_photos") / article_id
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        async with aiofiles.open(upload_dir / unique_name, "wb") as f:
+            await f.write(content)
+
+        url = f"/uploads/article_photos/{article_id}/{unique_name}"
+        position = len(a.photos) if a.photos else 0
+        photo = ArticlePhoto(article_id=article_id, url=url, file_name=file.filename or unique_name, position=position)
+        self._session.add(photo)
+        await self._session.flush()
+        await self._session.refresh(photo)
+        await self._session.commit()
+        return ArticlePhotoResponse(
+            id=photo.id, url=photo.url, file_name=photo.file_name, position=photo.position, created_at=photo.created_at
+        )
+
+    async def delete_photo(self, photo_id: int, user: User) -> None:
+        from pathlib import Path
+
+        photo = await self._session.get(ArticlePhoto, photo_id)
+        if photo is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
+        a = await self._repo.get_by_id(photo.article_id)
+        if a is None or a.author_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your article")
+        file_path = Path("/app") / photo.url.lstrip("/")
+        if file_path.exists():
+            file_path.unlink()
+        await self._session.delete(photo)
         await self._session.commit()

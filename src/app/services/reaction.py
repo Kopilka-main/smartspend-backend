@@ -6,13 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.article import Article
 from src.app.models.article_comment import ArticleComment
-from src.app.models.enums import ReactionTarget, ReactionType
+from src.app.models.enums import ReactionTarget
 from src.app.models.set_comment import SetComment
 from src.app.repositories.reaction import ReactionRepository
 from src.app.schemas.reaction import ReactionCreate, ReactionResponse
 
 VALID_TARGETS = {t.value for t in ReactionTarget}
-VALID_TYPES = {t.value for t in ReactionType}
 
 
 class ReactionService:
@@ -25,11 +24,6 @@ class ReactionService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid target_type, must be one of: {', '.join(VALID_TARGETS)}",
-            )
-        if data.type not in VALID_TYPES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid type, must be one of: {', '.join(VALID_TYPES)}",
             )
 
         existing = await self._repo.find(user_id, data.target_type, data.target_id)
@@ -80,7 +74,10 @@ class ReactionService:
             stmt = sa_update(Article).where(Article.id == target_id).values(likes_count=likes, dislikes_count=dislikes)
             await self._session.execute(stmt)
         elif target_type == "set":
-            pass
+            from src.app.models.set import Set
+
+            stmt = sa_update(Set).where(Set.id == target_id).values(likes_count=likes, dislikes_count=dislikes)
+            await self._session.execute(stmt)
         elif target_type == "comment":
             try:
                 comment_id = int(target_id)
