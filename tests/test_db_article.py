@@ -40,9 +40,7 @@ async def test_article_array_fields_roundtrip(session: AsyncSession) -> None:
     await session.flush()
     await session.refresh(article)
 
-    fetched = (
-        await session.execute(select(Article).where(Article.id == article.id))
-    ).scalar_one()
+    fetched = (await session.execute(select(Article).where(Article.id == article.id))).scalar_one()
 
     assert fetched.tags == ["finance", "tips", "envelopes"]
     assert fetched.linked_set_ids == ["set_1", "set_2"]
