@@ -58,3 +58,47 @@ jobs:
               echo "!!! Rollback ALSO failed, manual intervention required" >&2
             fi
             exit 1
+
+      - name: Notify Telegram on success
+        if: success()
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
+          SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          TEXT="✅ <b>Deploy OK</b>
+          <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
+          <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
+          <b>Author:</b> ${GITHUB_ACTOR}
+          <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">View workflow run</a>"
+          curl -sS -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT_ID}" \
+            --data-urlencode "parse_mode=HTML" \
+            --data-urlencode "disable_web_page_preview=true" \
+            --data-urlencode "text=${TEXT}"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
+          SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          TEXT="🚨 <b>Deploy FAILED</b>
+          <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
+          <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
+          <b>Author:</b> ${GITHUB_ACTOR}
+          <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">Open logs</a>"
+          curl -sS -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT_ID}" \
+            --data-urlencode "parse_mode=HTML" \
+            --data-urlencode "disable_web_page_preview=true" \
+            --data-urlencode "text=${TEXT}"
