@@ -1,5 +1,3 @@
-from datetime import date, timedelta
-
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -25,37 +23,44 @@ class CatalogRepository:
 
     async def list_public(
         self,
-        category_id: str | None = None,
+        category_ids: list[str] | None = None,
         source: str | None = None,
         set_type: str | None = None,
         search: str | None = None,
         sort: str = "newest",
         limit: int = 20,
         offset: int = 0,
+        user_id=None,
     ) -> tuple[list[Set], int]:
+        from src.app.models.reaction import Reaction
+
         base = (
             select(Set)
             .options(selectinload(Set.items), selectinload(Set.author), selectinload(Set.comments))
             .where(Set.is_private.is_(False), Set.hidden.is_(False))
         )
 
-        if category_id and category_id != "all":
-            base = base.where(Set.category_id == category_id)
+        if category_ids:
+            filtered = [c for c in category_ids if c and c != "all"]
+            if filtered:
+                base = base.where(Set.category_id.in_(filtered))
         if source and source != "all":
-            base = base.where(Set.source == source)
+            if source == "liked" and user_id:
+                liked_ids = select(Reaction.target_id).where(
+                    Reaction.user_id == user_id, Reaction.target_type == "set", Reaction.type == "like"
+                )
+                base = base.where(Set.id.in_(liked_ids))
+            elif source == "ss":
+                base = base.where(Set.source == "smartspend")
+            elif source != "liked":
+                base = base.where(Set.source == source)
         if set_type and set_type != "all":
             base = base.where(Set.set_type == set_type)
         if search and search.strip():
             pattern = f"%{search.strip()}%"
             base = base.where(Set.title.ilike(pattern) | Set.description.ilike(pattern))
 
-        if sort.startswith("popular"):
-            if sort == "popular_7d":
-                week_ago = date.today() - timedelta(days=7)
-                base = base.where(Set.created_at >= week_ago)
-            elif sort == "popular_30d":
-                month_ago = date.today() - timedelta(days=30)
-                base = base.where(Set.created_at >= month_ago)
+        if sort == "popular":
             count_q = select(func.count()).select_from(base.with_only_columns(Set.id).subquery())
             total = (await self._session.execute(count_q)).scalar_one()
             base = base.order_by(Set.users_count.desc())

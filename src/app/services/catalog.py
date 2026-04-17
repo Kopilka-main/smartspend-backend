@@ -208,22 +208,24 @@ class CatalogService:
 
     async def list_sets(
         self,
-        category_id: str | None = None,
+        category_ids: list[str] | None = None,
         source: str | None = None,
         set_type: str | None = None,
         search: str | None = None,
         sort: str = "newest",
         limit: int = 20,
         offset: int = 0,
+        user_id=None,
     ) -> tuple[list[SetListItem], int]:
         sets, total = await self._repo.list_public(
-            category_id=category_id,
+            category_ids=category_ids,
             source=source,
             set_type=set_type,
             search=search,
             sort=sort,
             limit=limit,
             offset=offset,
+            user_id=user_id,
         )
         return await self._enrich_list(sets), total
 

@@ -33,11 +33,19 @@ class ArticlePhotoResponse(CamelModel):
     created_at: datetime
 
 
+class LinkedSetInfo(CamelModel):
+    id: str
+    title: str
+    color: str
+    category_id: str
+
+
 class ArticleResponse(CamelModel):
     id: str
     title: str
     article_type: str | None = None
     category_id: str | None = None
+    category_name: str | None = None
     preview: str | None = None
     published_at: date | None = None
     status: str
@@ -51,6 +59,7 @@ class ArticleResponse(CamelModel):
     linked_set_id: str | None = None
     linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
+    linked_sets: list[LinkedSetInfo] = []
     blocks: list[ArticleBlockResponse] = []
     photos: list[ArticlePhotoResponse] = []
     author: AuthorInfo | None = None
@@ -63,6 +72,7 @@ class ArticleListItem(CamelModel):
     title: str
     article_type: str | None = None
     category_id: str | None = None
+    category_name: str | None = None
     preview: str | None = None
     published_at: date | None = None
     status: str
@@ -76,6 +86,7 @@ class ArticleListItem(CamelModel):
     linked_set_id: str | None = None
     linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
+    linked_sets: list[LinkedSetInfo] = []
     author: AuthorInfo | None = None
     created_at: datetime
 

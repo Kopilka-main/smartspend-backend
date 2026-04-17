@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, UploadFile
 
-from src.app.core.dependencies import CurrentUser, Session
+from src.app.core.dependencies import CurrentUser, OptionalUser, Session
 from src.app.schemas.base import ApiResponse, PaginationMeta
 from src.app.schemas.catalog import (
     SetCommentCreate,
@@ -19,7 +19,8 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 @router.get("", response_model=ApiResponse[list[SetListItem]])
 async def list_sets(
     session: Session,
-    category_id: str | None = Query(None),
+    current_user: OptionalUser,
+    category_ids: str | None = Query(None),
     source: str | None = Query(None),
     set_type: str | None = Query(None),
     search: str | None = Query(None, alias="q"),
@@ -27,15 +28,18 @@ async def list_sets(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
+    user_id = current_user.id if current_user else None
+    cats = [c.strip() for c in category_ids.split(",") if c.strip()] if category_ids else None
     service = CatalogService(session)
     items, total = await service.list_sets(
-        category_id=category_id,
+        category_ids=cats,
         source=source,
         set_type=set_type,
         search=search,
         sort=sort,
         limit=limit,
         offset=offset,
+        user_id=user_id,
     )
     return ApiResponse(
         data=items,

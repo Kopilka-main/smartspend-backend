@@ -48,7 +48,12 @@ def _author_info(user) -> AuthorInfo | None:
     )
 
 
-def _article_to_response(a: Article, set_title: str | None = None) -> ArticleResponse:
+def _article_to_response(
+    a: Article,
+    set_title: str | None = None,
+    category_name: str | None = None,
+    linked_sets: list | None = None,
+) -> ArticleResponse:
     from src.app.schemas.article import ArticlePhotoResponse
 
     photos = [
@@ -60,6 +65,7 @@ def _article_to_response(a: Article, set_title: str | None = None) -> ArticleRes
         title=a.title,
         article_type=a.article_type,
         category_id=a.category_id,
+        category_name=category_name,
         preview=a.preview,
         published_at=a.published_at,
         status=a.status,
@@ -73,6 +79,7 @@ def _article_to_response(a: Article, set_title: str | None = None) -> ArticleRes
         linked_set_id=a.linked_set_id,
         linked_set_ids=a.linked_set_ids,
         linked_set_title=set_title,
+        linked_sets=linked_sets or [],
         blocks=[],
         photos=photos,
         author=_author_info(a.author),
@@ -81,12 +88,18 @@ def _article_to_response(a: Article, set_title: str | None = None) -> ArticleRes
     )
 
 
-def _article_to_list_item(a: Article, set_title: str | None = None) -> ArticleListItem:
+def _article_to_list_item(
+    a: Article,
+    set_title: str | None = None,
+    category_name: str | None = None,
+    linked_sets: list | None = None,
+) -> ArticleListItem:
     return ArticleListItem(
         id=a.id,
         title=a.title,
         article_type=a.article_type,
         category_id=a.category_id,
+        category_name=category_name,
         preview=a.preview,
         published_at=a.published_at,
         status=a.status,
@@ -100,6 +113,7 @@ def _article_to_list_item(a: Article, set_title: str | None = None) -> ArticleLi
         linked_set_id=a.linked_set_id,
         linked_set_ids=a.linked_set_ids,
         linked_set_title=set_title,
+        linked_sets=linked_sets or [],
         author=_author_info(a.author),
         created_at=a.created_at,
     )
@@ -110,13 +124,39 @@ class ArticleService:
         self._session = session
         self._repo = ArticleRepository(session)
 
-    async def _resolve_set_titles(self, articles: list[Article]) -> dict[str, str]:
-        set_ids = {a.linked_set_id for a in articles if a.linked_set_id}
-        if not set_ids:
-            return {}
-        stmt = select(Set.id, Set.title).where(Set.id.in_(set_ids))
-        result = await self._session.execute(stmt)
-        return dict(result.all())
+    async def _resolve_sets_and_cats(self, articles: list[Article]):
+        from src.app.models.envelope_category import EnvelopeCategory
+        from src.app.schemas.article import LinkedSetInfo
+
+        all_set_ids: set[str] = set()
+        cat_ids: set[str] = set()
+        for a in articles:
+            if a.linked_set_id:
+                all_set_ids.add(a.linked_set_id)
+            for sid in a.linked_set_ids or []:
+                all_set_ids.add(sid)
+            if a.category_id:
+                cat_ids.add(a.category_id)
+
+        sets_map: dict[str, LinkedSetInfo] = {}
+        if all_set_ids:
+            stmt = select(Set.id, Set.title, Set.color, Set.category_id).where(Set.id.in_(all_set_ids))
+            for row in (await self._session.execute(stmt)).all():
+                sets_map[row[0]] = LinkedSetInfo(id=row[0], title=row[1], color=row[2], category_id=row[3])
+
+        cats_map: dict[str, str] = {}
+        if cat_ids:
+            stmt = select(EnvelopeCategory.id, EnvelopeCategory.name).where(EnvelopeCategory.id.in_(cat_ids))
+            cats_map = dict((await self._session.execute(stmt)).all())
+
+        return sets_map, cats_map
+
+    async def _enrich_article(self, a, sets_map, cats_map):
+
+        set_title = sets_map[a.linked_set_id].title if a.linked_set_id and a.linked_set_id in sets_map else None
+        cat_name = cats_map.get(a.category_id) if a.category_id else None
+        linked = [sets_map[sid] for sid in (a.linked_set_ids or []) if sid in sets_map]
+        return set_title, cat_name, linked
 
     async def list_published(
         self,
@@ -135,25 +175,31 @@ class ArticleService:
             limit=limit,
             offset=offset,
         )
-        titles = await self._resolve_set_titles(articles)
-        return [_article_to_list_item(a, titles.get(a.linked_set_id)) for a in articles], total
+        sets_map, cats_map = await self._resolve_sets_and_cats(articles)
+        result = []
+        for a in articles:
+            st, cn, ls = await self._enrich_article(a, sets_map, cats_map)
+            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls))
+        return result, total
 
     async def list_by_author(
         self, author_id: uuid.UUID, limit: int = 50, offset: int = 0
     ) -> tuple[list[ArticleListItem], int]:
         articles, total = await self._repo.list_by_author(author_id, limit, offset)
-        titles = await self._resolve_set_titles(articles)
-        return [_article_to_list_item(a, titles.get(a.linked_set_id)) for a in articles], total
+        sets_map, cats_map = await self._resolve_sets_and_cats(articles)
+        result = []
+        for a in articles:
+            st, cn, ls = await self._enrich_article(a, sets_map, cats_map)
+            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls))
+        return result, total
 
     async def get_article(self, article_id: str) -> ArticleResponse:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-        set_title = None
-        if a.linked_set_id:
-            titles = await self._resolve_set_titles([a])
-            set_title = titles.get(a.linked_set_id)
-        resp = _article_to_response(a, set_title)
+        sets_map, cats_map = await self._resolve_sets_and_cats([a])
+        st, cn, ls = await self._enrich_article(a, sets_map, cats_map)
+        resp = _article_to_response(a, set_title=st, category_name=cn, linked_sets=ls)
         resp.blocks = [
             ArticleBlockResponse(
                 id=b.id,
