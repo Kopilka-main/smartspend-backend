@@ -20,18 +20,18 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: ci
           POSTGRES_DB: smartspend_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d smartspend_test"
+          --health-cmd "pg_isready -U ci -d smartspend_test"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smartspend_test
+      DATABASE_URL: postgresql+asyncpg://ci@localhost:5432/smartspend_test
       SECRET_KEY: test-secret-key-with-at-least-32-characters-long
     steps:
       - uses: actions/checkout@v4
