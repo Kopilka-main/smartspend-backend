@@ -9,10 +9,10 @@ os.environ.setdefault(
 )
 os.environ.setdefault("SECRET_KEY", "test-secret-key-with-at-least-32-characters-long")
 
-import pytest_asyncio  # noqa: E402
-from sqlalchemy import text  # noqa: E402
-from sqlalchemy.engine.url import make_url  # noqa: E402
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
+import pytest_asyncio
+from sqlalchemy import text
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
