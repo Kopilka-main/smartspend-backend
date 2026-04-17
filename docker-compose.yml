@@ -2,7 +2,7 @@ services:
   smartspend-api:
     build: .
     container_name: smartspend-api
-    restart: always
+    restart: unless-stopped
     ports:
       - "127.0.0.1:8001:8001"
     env_file:
@@ -27,23 +27,10 @@ services:
       retries: 3
       start_period: 15s
 
-  smartspend-migrations:
-    build: .
-    container_name: smartspend-migrations
-    restart: "no"
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@smartspend-db:5432/${POSTGRES_DB}
-    command: python -m alembic upgrade head
-    depends_on:
-      smartspend-db:
-        condition: service_healthy
-
   smartspend-db:
     image: postgres:16-alpine
     container_name: smartspend-db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -57,6 +44,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  smartspend-migrations:
+    build: .
+    container_name: smartspend-migrations
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@smartspend-db:5432/${POSTGRES_DB}
+    command: python -m alembic upgrade head
+    depends_on:
+      smartspend-db:
+        condition: service_healthy
 
 volumes:
   smartspend_pgdata:

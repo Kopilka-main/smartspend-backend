@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,7 +21,37 @@ jobs:
           script: |
             set -euo pipefail
             cd /project/smartspend/back
-            git pull origin main
-            docker compose up -d --build --wait
-            curl -fsS --max-time 5 http://127.0.0.1:8001/health
-            echo "Deploy complete: $(date)"
+
+            PREVIOUS_SHA=$(git rev-parse HEAD)
+            git fetch --prune origin main
+            git reset --hard origin/main
+            NEW_SHA=$(git rev-parse HEAD)
+            echo "Deploying $PREVIOUS_SHA -> $NEW_SHA"
+
+            smoke_test() {
+              for attempt in 1 2 3 4 5; do
+                if curl -fsS --max-time 5 http://127.0.0.1:8001/health >/dev/null; then
+                  echo "Smoke test OK (attempt $attempt)"
+                  return 0
+                fi
+                sleep 2
+              done
+              return 1
+            }
+
+            if docker compose up -d --build --wait --wait-timeout 180 && smoke_test; then
+              echo "Deploy complete: $(date), SHA=$NEW_SHA"
+              exit 0
+            fi
+
+            echo "!!! Deploy FAILED on $NEW_SHA, rolling back code to $PREVIOUS_SHA" >&2
+            echo "!!! WARNING: DB migrations (if any) are NOT rolled back automatically" >&2
+            docker compose logs --tail=200 smartspend-migrations smartspend-api || true
+
+            git reset --hard "$PREVIOUS_SHA"
+            if docker compose up -d --build --wait --wait-timeout 180 && smoke_test; then
+              echo "Rolled back to $PREVIOUS_SHA, but original deploy $NEW_SHA failed" >&2
+            else
+              echo "!!! Rollback ALSO failed, manual intervention required" >&2
+            fi
+            exit 1

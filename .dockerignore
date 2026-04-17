@@ -1,8 +1,53 @@
-.venv
+# VCS
 .git
-.env
+.gitignore
+.gitattributes
+
+# Virtual environments
+.venv
+venv
+
+# Python caches / artifacts
 __pycache__
 *.pyc
+*.pyo
+*.pyd
+*.egg
+*.egg-info
+.eggs
+dist
+build
+
+# Tool caches
+.mypy_cache
+.ruff_cache
+.pytest_cache
+
+# Local dbs / data
+*.db
+*.sqlite
+*.sqlite3
+
+# Env files (secrets live on host, not in the image)
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.idea
+.vscode
 .kiro
+
+# CI / repo-only files
 .github
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Docs (no need inside runtime image)
+README.md
 API.md
+*.md
+
+# Tests (keep image lean; migrations служебная папка, она нужна — не исключаем)
+tests
