@@ -1,14 +1,17 @@
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.api.v1.router import api_router
 from src.app.core.config import settings
+from src.app.core.database import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,12 @@ app.add_middleware(
 @app.get("/health", tags=["health"], include_in_schema=False)
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["health"], include_in_schema=False)
+async def health_ready(session: AsyncSession = Depends(get_session)) -> dict[str, str]:
+    await session.execute(text("SELECT 1"))
+    return {"status": "ready"}
 
 
 app.include_router(api_router)
