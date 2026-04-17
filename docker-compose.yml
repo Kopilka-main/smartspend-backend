@@ -6,7 +6,9 @@ services:
     ports:
       - "127.0.0.1:8001:8001"
     env_file:
-      - .env.docker
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@smartspend-db:5432/${POSTGRES_DB}
     volumes:
       - smartspend_uploads:/app/uploads
     depends_on:
@@ -18,15 +20,15 @@ services:
     container_name: smartspend-db
     restart: always
     environment:
-      POSTGRES_DB: smartspend
-      POSTGRES_USER: smartspend
-      POSTGRES_PASSWORD: SmartSpend2026Prod
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - smartspend_pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U smartspend -d smartspend"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5
