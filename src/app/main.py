@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.app.api.v1.router import api_router
+from src.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,17 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/health", tags=["health"], include_in_schema=False)
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
 
 app.include_router(api_router)
 

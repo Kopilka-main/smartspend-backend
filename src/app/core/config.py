@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     secret_key: str
     access_token_expire_minutes: int = 1440
     refresh_token_expire_days: int = 7
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:5173", "https://smartspend.i20h.ru"]
 
     @field_validator("secret_key")
     @classmethod

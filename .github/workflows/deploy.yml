@@ -18,6 +18,6 @@ jobs:
             set -euo pipefail
             cd /project/smartspend/back
             git pull origin main
-            docker compose up -d --build
-            docker compose exec -T smartspend-api python -m alembic upgrade head
+            docker compose up -d --build --wait
+            curl -fsS --max-time 5 http://127.0.0.1:8001/health
             echo "Deploy complete: $(date)"

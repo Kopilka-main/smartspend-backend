@@ -14,6 +14,31 @@ services:
     depends_on:
       smartspend-db:
         condition: service_healthy
+      smartspend-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2).status == 200 else 1)"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  smartspend-migrations:
+    build: .
+    container_name: smartspend-migrations
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@smartspend-db:5432/${POSTGRES_DB}
+    command: python -m alembic upgrade head
+    depends_on:
+      smartspend-db:
+        condition: service_healthy
 
   smartspend-db:
     image: postgres:16-alpine
