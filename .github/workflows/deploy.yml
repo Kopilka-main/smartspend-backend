@@ -83,46 +83,48 @@ jobs:
             fi
             exit 1
 
-      - name: Notify Telegram on success
-        if: success()
+  notify:
+    needs: [test, deploy]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Send Telegram notification
         env:
           TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
+          TEST_RESULT: ${{ needs.test.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
         run: |
           set -euo pipefail
           SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
           SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          TEXT="✅ <b>Deploy OK</b>
-          
-          <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
-          <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
-          <b>Author:</b> ${GITHUB_ACTOR}
-          <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">View workflow run</a>"
-          curl -sS -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-            --data-urlencode "chat_id=${CHAT_ID}" \
-            --data-urlencode "parse_mode=HTML" \
-            --data-urlencode "disable_web_page_preview=true" \
-            --data-urlencode "text=${TEXT}"
 
-      - name: Notify Telegram on failure
-        if: failure()
-        env:
-          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
-        run: |
-          set -euo pipefail
-          SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
-          SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          TEXT="🚨 <b>Deploy FAILED</b>
-          
+          if [ "$TEST_RESULT" = "failure" ]; then
+            STATUS="🚨 <b>Tests FAILED</b> — deploy skipped"
+            LINK_LABEL="Open logs"
+          elif [ "$DEPLOY_RESULT" = "failure" ]; then
+            STATUS="🚨 <b>Deploy FAILED</b>"
+            LINK_LABEL="Open logs"
+          elif [ "$TEST_RESULT" = "success" ] && [ "$DEPLOY_RESULT" = "success" ]; then
+            STATUS="✅ <b>Deploy OK</b>"
+            LINK_LABEL="View workflow run"
+          else
+            echo "Unexpected combo: test=$TEST_RESULT, deploy=$DEPLOY_RESULT — skipping notification"
+            exit 0
+          fi
+
+          TEXT="${STATUS}
+
           <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
           <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
           <b>Author:</b> ${GITHUB_ACTOR}
-          <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">Open logs</a>"
+          <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">${LINK_LABEL}</a>"
+
           curl -sS -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${CHAT_ID}" \
             --data-urlencode "parse_mode=HTML" \
