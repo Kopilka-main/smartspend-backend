@@ -70,7 +70,7 @@ jobs:
           SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
           SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          TEXT="✅ <b>Deploy OK</b>
+          TEXT="✅ <b>Deploy OK</b>\n
           <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
           <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
           <b>Author:</b> ${GITHUB_ACTOR}
@@ -92,7 +92,7 @@ jobs:
           SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
           SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          TEXT="🚨 <b>Deploy FAILED</b>
+          TEXT="🚨 <b>Deploy FAILED</b>\n         
           <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
           <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
           <b>Author:</b> ${GITHUB_ACTOR}
