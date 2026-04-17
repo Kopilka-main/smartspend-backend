@@ -35,6 +35,7 @@ class ArticleRepository:
         sort: str = "newest",
         limit: int = 20,
         offset: int = 0,
+        linked_set_id: str | None = None,
     ) -> tuple[list[Article], int]:
         base = (
             select(Article)
@@ -42,6 +43,8 @@ class ArticleRepository:
             .where(Article.status == "published")
         )
 
+        if linked_set_id:
+            base = base.where((Article.linked_set_id == linked_set_id) | (Article.linked_set_ids.any(linked_set_id)))
         if category_id and category_id != "all":
             base = base.where(Article.category_id == category_id)
         if author_id:

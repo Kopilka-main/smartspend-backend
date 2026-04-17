@@ -166,6 +166,7 @@ class ArticleService:
         sort: str = "newest",
         limit: int = 20,
         offset: int = 0,
+        linked_set_id: str | None = None,
     ) -> tuple[list[ArticleListItem], int]:
         articles, total = await self._repo.list_published(
             category_id=category_id,
@@ -174,6 +175,7 @@ class ArticleService:
             sort=sort,
             limit=limit,
             offset=offset,
+            linked_set_id=linked_set_id,
         )
         sets_map, cats_map = await self._resolve_sets_and_cats(articles)
         result = []

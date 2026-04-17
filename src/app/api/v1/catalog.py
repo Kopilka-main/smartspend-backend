@@ -115,6 +115,15 @@ async def delete_comment(comment_id: int, user: CurrentUser, session: Session):
     return ApiResponse(data=None)
 
 
+@router.get("/{set_id}/articles", response_model=ApiResponse[list])
+async def get_set_articles(set_id: str, session: Session):
+    from src.app.services.article import ArticleService
+
+    service = ArticleService(session)
+    items, _total = await service.list_published(linked_set_id=set_id)
+    return ApiResponse(data=items)
+
+
 @router.post("/{set_id}/photos", response_model=ApiResponse[SetPhotoResponse], status_code=201)
 async def add_set_photo(set_id: str, file: UploadFile, user: CurrentUser, session: Session):
     service = CatalogService(session)

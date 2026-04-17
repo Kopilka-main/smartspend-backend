@@ -98,6 +98,7 @@ def _set_to_response(s: Set, category_name: str | None = None, comments_count: i
             planned_price=i.planned_price,
             base_price=i.base_price,
             period_years=i.period_years,
+            period=i.period_years,
             monthly_cost=_compute_monthly(i),
         )
         for i in (s.items or [])
@@ -154,6 +155,7 @@ def _set_to_list_item(s: Set, category_name: str | None = None, comments_count: 
             planned_price=i.planned_price,
             base_price=i.base_price,
             period_years=i.period_years,
+            period=i.period_years,
             monthly_cost=_compute_monthly(i),
         )
         for i in (s.items or [])

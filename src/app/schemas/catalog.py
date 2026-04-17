@@ -21,6 +21,7 @@ class SetItemResponse(CamelModel):
     planned_price: int | None = None
     base_price: Decimal | None = None
     period_years: Decimal | None = None
+    period: Decimal | None = None
     monthly_cost: Decimal = Decimal("0")
 
 
