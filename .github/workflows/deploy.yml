@@ -12,8 +12,8 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: kopilka.i20h.ru
-          username: goncharov
-          password: ${{ secrets.SERVER_PASSWORD }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /project/smartspend/back
             git pull origin main
