@@ -12,20 +12,19 @@ router = APIRouter(prefix="/feed", tags=["feed"])
 async def get_feed(
     user: CurrentUser,
     session: Session,
-    type: str = Query("all", alias="type"),
     mode: str | None = Query(None),
-    category_id: str | None = Query(None, alias="cat"),
+    category_ids: str | None = Query(None, alias="cat"),
     search: str | None = Query(None, alias="q"),
-    sort: str = Query("newest"),
+    sort: str = Query("popular_7d"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
+    cats = [c.strip() for c in category_ids.split(",") if c.strip()] if category_ids else None
     service = FeedService(session)
     items, total = await service.get_feed(
         user_id=user.id,
-        feed_type=type,
         mode=mode,
-        category_id=category_id,
+        category_ids=cats,
         search=search,
         sort=sort,
         limit=limit,
@@ -35,3 +34,9 @@ async def get_feed(
         data=items,
         meta=PaginationMeta(total=total, limit=limit, offset=offset).model_dump(by_alias=True),
     )
+
+
+@router.get("/tags", response_model=ApiResponse[list[str]])
+async def get_tags(session: Session):
+    service = FeedService(session)
+    return ApiResponse(data=await service.get_tags())
