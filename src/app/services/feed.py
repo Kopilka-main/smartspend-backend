@@ -1,5 +1,4 @@
 import uuid
-from datetime import date, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,10 +87,6 @@ class FeedService:
                 base = base.where(Article.title.ilike(pattern) | Article.preview.ilike(pattern) | Article.tags.any(q))
 
         if sort.startswith("popular"):
-            if sort == "popular_7d":
-                base = base.where(Article.published_at >= date.today() - timedelta(days=7))
-            elif sort == "popular_30d":
-                base = base.where(Article.published_at >= date.today() - timedelta(days=30))
             count_q = select(func.count()).select_from(base.with_only_columns(Article.id).subquery())
             total = (await self._session.execute(count_q)).scalar_one()
             base = base.order_by(Article.likes_count.desc())
