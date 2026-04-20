@@ -82,7 +82,8 @@ class UserService:
         updates = data.model_dump(exclude_unset=True)
         if updates:
             await self._repo.update_finance(user_id, **updates)
-        await self._session.commit()
+            await self._session.commit()
+        self._session.expire_all()
         finance = await self._repo.get_finance(user_id)
         return UserFinanceResponse.model_validate(finance)
 
