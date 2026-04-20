@@ -18,12 +18,12 @@ class UserFinanceResponse(CamelModel):
 
 
 class UserFinanceUpdate(CamelModel):
-    income: int = Field(ge=0)
-    housing: int = Field(ge=0)
-    credit: int = Field(ge=0)
-    credit_months: int = Field(ge=0)
-    capital: int = Field(ge=0)
-    emo_rate: Decimal = Field(ge=Decimal("0.03"), le=Decimal("0.10"))
+    income: int | None = Field(None, ge=0)
+    housing: int | None = Field(None, ge=0)
+    credit: int | None = Field(None, ge=0)
+    credit_months: int | None = Field(None, ge=0)
+    capital: int | None = Field(None, ge=0)
+    emo_rate: Decimal | None = Field(None, ge=Decimal("0.03"), le=Decimal("0.10"))
 
 
 class ProfileUpdate(CamelModel):

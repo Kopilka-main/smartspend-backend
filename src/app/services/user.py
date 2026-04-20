@@ -79,7 +79,9 @@ class UserService:
         return UserFinanceResponse.model_validate(finance)
 
     async def update_finance(self, user_id: uuid.UUID, data: UserFinanceUpdate) -> UserFinanceResponse:
-        await self._repo.update_finance(user_id, **data.model_dump())
+        updates = data.model_dump(exclude_unset=True)
+        if updates:
+            await self._repo.update_finance(user_id, **updates)
         await self._session.commit()
         finance = await self._repo.get_finance(user_id)
         return UserFinanceResponse.model_validate(finance)
