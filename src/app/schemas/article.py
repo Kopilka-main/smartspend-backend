@@ -38,6 +38,26 @@ class LinkedSetInfo(CamelModel):
     title: str
     color: str
     category_id: str
+    category_name: str | None = None
+    amount: int | None = None
+    period: str | None = None
+
+
+class SetLinkCard(CamelModel):
+    id: str
+    title: str
+    description: str | None = None
+    color: str
+    amount: int | None = None
+    amount_label: str | None = None
+    period: str | None = None
+    users_count: int = 0
+
+
+class ArticleNoteResponse(CamelModel):
+    id: int
+    text: str
+    created_at: datetime
 
 
 class ArticleResponse(CamelModel):
@@ -60,8 +80,10 @@ class ArticleResponse(CamelModel):
     linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
     linked_sets: list[LinkedSetInfo] = []
+    set_link: SetLinkCard | None = None
     blocks: list[ArticleBlockResponse] = []
     photos: list[ArticlePhotoResponse] = []
+    notes: list[ArticleNoteResponse] = []
     author: AuthorInfo | None = None
     created_at: datetime
     updated_at: datetime

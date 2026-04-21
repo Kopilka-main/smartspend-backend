@@ -53,6 +53,7 @@ def _article_to_response(
     set_title: str | None = None,
     category_name: str | None = None,
     linked_sets: list | None = None,
+    set_link=None,
 ) -> ArticleResponse:
     from src.app.schemas.article import ArticlePhotoResponse
 
@@ -80,6 +81,7 @@ def _article_to_response(
         linked_set_ids=a.linked_set_ids,
         linked_set_title=set_title,
         linked_sets=linked_sets or [],
+        set_link=set_link,
         blocks=[],
         photos=photos,
         author=_author_info(a.author),
@@ -93,6 +95,7 @@ def _article_to_list_item(
     set_title: str | None = None,
     category_name: str | None = None,
     linked_sets: list | None = None,
+    set_link=None,
 ) -> ArticleListItem:
     return ArticleListItem(
         id=a.id,
@@ -138,25 +141,74 @@ class ArticleService:
             if a.category_id:
                 cat_ids.add(a.category_id)
 
-        sets_map: dict[str, LinkedSetInfo] = {}
+        sets_raw: dict[str, dict] = {}
         if all_set_ids:
-            stmt = select(Set.id, Set.title, Set.color, Set.category_id).where(Set.id.in_(all_set_ids))
+            stmt = select(
+                Set.id,
+                Set.title,
+                Set.color,
+                Set.category_id,
+                Set.description,
+                Set.amount,
+                Set.amount_label,
+                Set.period,
+                Set.users_count,
+            ).where(Set.id.in_(all_set_ids))
             for row in (await self._session.execute(stmt)).all():
-                sets_map[row[0]] = LinkedSetInfo(id=row[0], title=row[1], color=row[2], category_id=row[3])
+                sets_raw[row[0]] = {
+                    "id": row[0],
+                    "title": row[1],
+                    "color": row[2],
+                    "category_id": row[3],
+                    "description": row[4],
+                    "amount": row[5],
+                    "amount_label": row[6],
+                    "period": row[7],
+                    "users_count": row[8] or 0,
+                }
 
         cats_map: dict[str, str] = {}
-        if cat_ids:
-            stmt = select(EnvelopeCategory.id, EnvelopeCategory.name).where(EnvelopeCategory.id.in_(cat_ids))
+        all_cat_ids = cat_ids | {s["category_id"] for s in sets_raw.values() if s.get("category_id")}
+        if all_cat_ids:
+            stmt = select(EnvelopeCategory.id, EnvelopeCategory.name).where(EnvelopeCategory.id.in_(all_cat_ids))
             cats_map = dict((await self._session.execute(stmt)).all())
 
-        return sets_map, cats_map
+        sets_map: dict[str, LinkedSetInfo] = {}
+        for sid, s in sets_raw.items():
+            sets_map[sid] = LinkedSetInfo(
+                id=s["id"],
+                title=s["title"],
+                color=s["color"],
+                category_id=s["category_id"],
+                category_name=cats_map.get(s["category_id"]),
+                amount=s["amount"],
+                period=s["period"],
+            )
 
-    async def _enrich_article(self, a, sets_map, cats_map):
+        return sets_map, sets_raw, cats_map
+
+    async def _enrich_article(self, a, sets_map, sets_raw, cats_map):
+        from src.app.schemas.article import SetLinkCard
 
         set_title = sets_map[a.linked_set_id].title if a.linked_set_id and a.linked_set_id in sets_map else None
         cat_name = cats_map.get(a.category_id) if a.category_id else None
         linked = [sets_map[sid] for sid in (a.linked_set_ids or []) if sid in sets_map]
-        return set_title, cat_name, linked
+
+        set_link = None
+        if a.linked_set_id and a.linked_set_id in sets_raw:
+            s = sets_raw[a.linked_set_id]
+            set_link = SetLinkCard(
+                id=s["id"],
+                title=s["title"],
+                description=s["description"],
+                color=s["color"],
+                amount=s["amount"],
+                amount_label=s["amount_label"],
+                period=s["period"],
+                users_count=s["users_count"],
+            )
+
+        return set_title, cat_name, linked, set_link
 
     async def list_published(
         self,
@@ -177,31 +229,31 @@ class ArticleService:
             offset=offset,
             linked_set_id=linked_set_id,
         )
-        sets_map, cats_map = await self._resolve_sets_and_cats(articles)
+        sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats(articles)
         result = []
         for a in articles:
-            st, cn, ls = await self._enrich_article(a, sets_map, cats_map)
-            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls))
+            st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
+            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl))
         return result, total
 
     async def list_by_author(
         self, author_id: uuid.UUID, limit: int = 50, offset: int = 0
     ) -> tuple[list[ArticleListItem], int]:
         articles, total = await self._repo.list_by_author(author_id, limit, offset)
-        sets_map, cats_map = await self._resolve_sets_and_cats(articles)
+        sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats(articles)
         result = []
         for a in articles:
-            st, cn, ls = await self._enrich_article(a, sets_map, cats_map)
-            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls))
+            st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
+            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl))
         return result, total
 
     async def get_article(self, article_id: str) -> ArticleResponse:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-        sets_map, cats_map = await self._resolve_sets_and_cats([a])
-        st, cn, ls = await self._enrich_article(a, sets_map, cats_map)
-        resp = _article_to_response(a, set_title=st, category_name=cn, linked_sets=ls)
+        sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats([a])
+        st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
+        resp = _article_to_response(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl)
         resp.blocks = [
             ArticleBlockResponse(
                 id=b.id,
@@ -468,3 +520,37 @@ class ArticleService:
             file_path.unlink()
         await self._session.delete(photo)
         await self._session.commit()
+
+    async def add_note(self, article_id: str, user, text: str) -> dict:
+        from src.app.models.article_note import ArticleNote
+
+        if not text or not text.strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Text is required")
+        note = ArticleNote(article_id=article_id, user_id=user.id, text=text.strip())
+        self._session.add(note)
+        await self._session.flush()
+        await self._session.refresh(note)
+        await self._session.commit()
+        return {"id": note.id, "text": note.text, "createdAt": note.created_at.isoformat()}
+
+    async def delete_note(self, note_id: int, user) -> None:
+        from src.app.models.article_note import ArticleNote
+
+        note = await self._session.get(ArticleNote, note_id)
+        if note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        if note.user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your note")
+        await self._session.delete(note)
+        await self._session.commit()
+
+    async def _get_notes(self, article_id: str, user_id) -> list:
+        from src.app.models.article_note import ArticleNote
+
+        stmt = (
+            select(ArticleNote)
+            .where(ArticleNote.article_id == article_id, ArticleNote.user_id == user_id)
+            .order_by(ArticleNote.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return [{"id": n.id, "text": n.text, "createdAt": n.created_at.isoformat()} for n in result.scalars().all()]

@@ -151,3 +151,16 @@ async def delete_article_photo(photo_id: int, user: CurrentUser, session: Sessio
     service = ArticleService(session)
     await service.delete_photo(photo_id, user)
     return ApiResponse(data=None)
+
+
+@router.post("/{article_id}/notes", response_model=ApiResponse[dict], status_code=201)
+async def add_note(article_id: str, body: dict, user: CurrentUser, session: Session):
+    service = ArticleService(session)
+    return ApiResponse(data=await service.add_note(article_id, user, body.get("text", "")))
+
+
+@router.delete("/notes/{note_id}", response_model=ApiResponse[None])
+async def delete_note(note_id: int, user: CurrentUser, session: Session):
+    service = ArticleService(session)
+    await service.delete_note(note_id, user)
+    return ApiResponse(data=None)

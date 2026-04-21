@@ -1,5 +1,6 @@
 from src.app.models.article import Article, ArticleBlock
 from src.app.models.article_comment import ArticleComment
+from src.app.models.article_note import ArticleNote
 from src.app.models.article_photo import ArticlePhoto
 from src.app.models.article_read import ArticleRead
 from src.app.models.article_set_link import ArticleSetLink
@@ -32,6 +33,7 @@ __all__ = [
     "Article",
     "ArticleBlock",
     "ArticleComment",
+    "ArticleNote",
     "ArticlePhoto",
     "ArticleRead",
     "ArticleSetLink",
