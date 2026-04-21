@@ -100,6 +100,7 @@ class SetListItem(CamelModel):
     is_private: bool
     items_count: int = 0
     items: list[SetItemResponse] = []
+    tags: list[str] = []
     author: AuthorInfo | None = None
     created_at: datetime
 

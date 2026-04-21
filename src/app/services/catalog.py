@@ -62,6 +62,17 @@ def _compute_monthly(item) -> Decimal:
     return Decimal("0")
 
 
+def _build_set_tags(s) -> list[str]:
+    tags = []
+    count = len(s.items) if s.items else 0
+    if count:
+        tags.append(f"{count} поз.")
+    period = getattr(s, "period", None)
+    if period:
+        tags.append(period.lstrip("/ ").strip())
+    return tags
+
+
 def _author_info(user) -> AuthorInfo | None:
     if user is None:
         return None
@@ -181,6 +192,7 @@ def _set_to_list_item(s: Set, category_name: str | None = None, comments_count: 
         is_private=s.is_private,
         items_count=len(s.items) if s.items else 0,
         items=items,
+        tags=_build_set_tags(s),
         author=_author_info(s.author),
         created_at=s.created_at,
     )
