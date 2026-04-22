@@ -195,8 +195,9 @@ class ArticleService:
         linked = [sets_map[sid] for sid in (a.linked_set_ids or []) if sid in sets_map]
 
         set_link = None
-        if a.linked_set_id and a.linked_set_id in sets_raw:
-            s = sets_raw[a.linked_set_id]
+        primary_set_id = a.linked_set_id or (a.linked_set_ids[0] if a.linked_set_ids else None)
+        if primary_set_id and primary_set_id in sets_raw:
+            s = sets_raw[primary_set_id]
             set_link = SetLinkCard(
                 id=s["id"],
                 title=s["title"],
@@ -247,7 +248,7 @@ class ArticleService:
             result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl))
         return result, total
 
-    async def get_article(self, article_id: str) -> ArticleResponse:
+    async def get_article(self, article_id: str, user_id=None) -> ArticleResponse:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
@@ -266,6 +267,11 @@ class ArticleService:
             )
             for b in (a.blocks or [])
         ]
+        if user_id:
+            from src.app.schemas.article import ArticleNoteResponse
+
+            notes = await self._get_notes(article_id, user_id)
+            resp.notes = [ArticleNoteResponse(**n) for n in notes]
         return resp
 
     async def create_article(self, user: User, data: ArticleCreate) -> ArticleResponse:
@@ -456,12 +462,22 @@ class ArticleService:
         await self._session.commit()
 
     async def link_to_set(self, article_id: str, user: User, data: ArticleSetLinkCreate) -> None:
+        a = await self._repo.get_by_id(article_id)
+        if a is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        if a.author_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your article")
+        stmt = sa_update(Article).where(Article.id == article_id).values(linked_set_id=data.set_id)
+        await self._session.execute(stmt)
         link = ArticleSetLink(
             article_id=article_id,
             user_id=user.id,
             set_id=data.set_id,
         )
-        await self._repo.link_to_set(link)
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            await self._repo.link_to_set(link)
         await self._session.commit()
 
     async def unlink_from_set(self, article_id: str, user: User) -> None:

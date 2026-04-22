@@ -60,9 +60,10 @@ async def list_my_articles(
 
 
 @router.get("/{article_id}", response_model=ApiResponse[ArticleResponse])
-async def get_article(article_id: str, session: Session):
+async def get_article(article_id: str, session: Session, user: OptionalUser):
     service = ArticleService(session)
-    return ApiResponse(data=await service.get_article(article_id))
+    uid = user.id if user else None
+    return ApiResponse(data=await service.get_article(article_id, user_id=uid))
 
 
 @router.post("", response_model=ApiResponse[ArticleResponse], status_code=201)
