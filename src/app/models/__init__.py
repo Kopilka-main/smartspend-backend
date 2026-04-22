@@ -4,6 +4,9 @@ from src.app.models.article_note import ArticleNote
 from src.app.models.article_photo import ArticlePhoto
 from src.app.models.article_read import ArticleRead
 from src.app.models.article_set_link import ArticleSetLink
+from src.app.models.card import Card, UserCard
+from src.app.models.company import Company, UserCompany
+from src.app.models.deposit import Deposit
 from src.app.models.enums import (
     ArticleStatus,
     BlockType,
@@ -21,6 +24,7 @@ from src.app.models.follow import Follow
 from src.app.models.inventory_group import InventoryGroup, InventoryGroupCategory
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
 from src.app.models.notification import Notification
+from src.app.models.promo import Promo, PromoComment, PromoVote
 from src.app.models.reaction import Reaction
 from src.app.models.saved_set import SavedSet
 from src.app.models.set import Set, SetItem
@@ -39,6 +43,9 @@ __all__ = [
     "ArticleSetLink",
     "ArticleStatus",
     "BlockType",
+    "Card",
+    "Company",
+    "Deposit",
     "Envelope",
     "EnvelopeCategory",
     "Follow",
@@ -50,6 +57,9 @@ __all__ = [
     "InventoryPurchase",
     "NotifType",
     "Notification",
+    "Promo",
+    "PromoComment",
+    "PromoVote",
     "Reaction",
     "ReactionTarget",
     "ReactionType",
@@ -61,6 +71,8 @@ __all__ = [
     "SetSource",
     "Theme",
     "User",
+    "UserCard",
+    "UserCompany",
     "UserFinance",
     "UserStatus",
 ]

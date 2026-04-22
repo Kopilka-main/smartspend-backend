@@ -1,0 +1,19 @@
+from datetime import datetime
+
+from src.app.schemas.base import CamelModel
+
+
+class CompanyResponse(CamelModel):
+    id: str
+    name: str
+    abbr: str | None = None
+    color: str
+    category_id: str | None = None
+    description: str | None = None
+    promo_types: list[str] | None = None
+
+
+class UserCompanyResponse(CamelModel):
+    id: int
+    company_id: str
+    created_at: datetime
