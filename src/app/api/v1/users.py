@@ -9,6 +9,7 @@ from src.app.schemas.user import (
     DeleteAccountRequest,
     ProfileSummary,
     ProfileUpdate,
+    SettingsResponse,
     SettingsUpdate,
     UserFinanceResponse,
     UserFinanceUpdate,
@@ -31,6 +32,25 @@ async def update_me(body: ProfileUpdate, user: CurrentUser, session: Session):
     service = UserService(session)
     updated = await service.update_profile(user, body)
     return ApiResponse(data=updated)
+
+
+@router.get("/me/settings", response_model=ApiResponse[SettingsResponse])
+async def get_settings(user: CurrentUser):
+    return ApiResponse(
+        data=SettingsResponse(
+            theme=user.theme,
+            timezone=user.timezone,
+            location=user.location,
+            notify_new_sets=user.notify_new_sets,
+            notify_author_articles=user.notify_author_articles,
+            notify_subscriptions=user.notify_subscriptions,
+            notify_set_changes=user.notify_set_changes,
+            notify_reminders=user.notify_reminders,
+            privacy_sets=user.privacy_sets,
+            privacy_articles=user.privacy_articles,
+            privacy_profile=user.privacy_profile,
+        )
+    )
 
 
 @router.put("/me/settings", response_model=ApiResponse[UserResponse])

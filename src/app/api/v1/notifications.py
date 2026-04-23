@@ -42,3 +42,17 @@ async def mark_all_read(user: CurrentUser, session: Session):
     service = NotificationService(session)
     await service.mark_all_read(user.id)
     return ApiResponse(data=None)
+
+
+@router.post("/{notification_id}/approve", response_model=ApiResponse[None])
+async def approve_request(notification_id: int, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    await service.set_action(notification_id, user.id, "approved")
+    return ApiResponse(data=None)
+
+
+@router.post("/{notification_id}/reject", response_model=ApiResponse[None])
+async def reject_request(notification_id: int, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    await service.set_action(notification_id, user.id, "rejected")
+    return ApiResponse(data=None)

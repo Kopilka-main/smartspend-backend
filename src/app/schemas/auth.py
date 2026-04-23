@@ -51,6 +51,7 @@ class UserResponse(CamelModel):
     joined_at: datetime
     followers_count: int = 0
     has_promo_setup: bool = False
+    password_changed_at: datetime | None = None
     finance: UserFinanceInline | None = None
 
 
@@ -75,3 +76,8 @@ class ResetPasswordRequest(CamelModel):
 class ChangePasswordRequest(CamelModel):
     current_password: str = Field(min_length=1)
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangeEmailRequest(CamelModel):
+    new_email: EmailStr
+    password: str = Field(min_length=1)

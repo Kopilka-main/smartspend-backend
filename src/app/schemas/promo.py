@@ -4,6 +4,13 @@ from pydantic import Field
 
 from src.app.schemas.base import CamelModel
 from src.app.schemas.company import CompanyResponse
+from src.app.schemas.user import AuthorInfo
+
+
+class PromoVoteEntry(CamelModel):
+    user_id: str
+    vote: str
+    created_at: datetime
 
 
 class PromoResponse(CamelModel):
@@ -13,6 +20,7 @@ class PromoResponse(CamelModel):
     category_id: str | None = None
     category_name: str | None = None
     author_id: str | None = None
+    author: AuthorInfo | None = None
     title: str | None = None
     text: str
     code: str | None = None
@@ -24,6 +32,9 @@ class PromoResponse(CamelModel):
     expires_at: datetime | None = None
     votes_up: int
     votes_down: int
+    comments_count: int = 0
+    my_vote: str | None = None
+    vote_history: list[PromoVoteEntry] = []
     is_active: bool
     created_at: datetime
     company: CompanyResponse | None = None

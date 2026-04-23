@@ -11,4 +11,5 @@ class NotificationResponse(CamelModel):
     description: str
     is_read: bool
     payload: str | None = None
+    action_status: str | None = None
     created_at: datetime

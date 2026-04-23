@@ -28,6 +28,7 @@ class NotificationService:
                 description=n.description,
                 is_read=n.is_read,
                 payload=n.payload,
+                action_status=n.action_status,
                 created_at=n.created_at,
             )
             for n in notifs
@@ -42,4 +43,8 @@ class NotificationService:
 
     async def mark_all_read(self, user_id: uuid.UUID) -> None:
         await self._repo.mark_all_read(user_id)
+        await self._session.commit()
+
+    async def set_action(self, notification_id: int, user_id: uuid.UUID, action_status: str) -> None:
+        await self._repo.set_action(notification_id, user_id, action_status)
         await self._session.commit()

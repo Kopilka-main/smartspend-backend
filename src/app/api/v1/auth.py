@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.auth import (
     AuthResponse,
+    ChangeEmailRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
@@ -61,6 +62,13 @@ async def me(user: CurrentUser, session: Session):
 async def change_password(body: ChangePasswordRequest, user: CurrentUser, session: Session):
     service = AuthService(session)
     await service.change_password(user, body)
+    return ApiResponse(data=None)
+
+
+@router.post("/change-email", response_model=ApiResponse[None])
+async def change_email(body: ChangeEmailRequest, user: CurrentUser, session: Session):
+    service = AuthService(session)
+    await service.change_email(user, body.new_email, body.password)
     return ApiResponse(data=None)
 
 

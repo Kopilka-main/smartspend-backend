@@ -51,9 +51,10 @@ async def list_promos(
 
 
 @router.get("/{promo_id}", response_model=ApiResponse[PromoResponse])
-async def get_promo(promo_id: int, session: Session):
+async def get_promo(promo_id: int, session: Session, current_user: OptionalUser):
     service = PromoService(session)
-    return ApiResponse(data=await service.get_promo(promo_id))
+    viewer_id = current_user.id if current_user else None
+    return ApiResponse(data=await service.get_promo(promo_id, viewer_id=viewer_id))
 
 
 @router.post("", response_model=ApiResponse[PromoResponse], status_code=201)

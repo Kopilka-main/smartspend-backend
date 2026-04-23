@@ -55,6 +55,7 @@ def _user_to_response(user: User, followers_count: int = 0, has_promo_setup: boo
         joined_at=user.joined_at,
         followers_count=followers_count,
         has_promo_setup=has_promo_setup,
+        password_changed_at=user.password_changed_at or user.joined_at,
         finance=finance_data,
     )
 
@@ -128,7 +129,23 @@ class AuthService:
     async def change_password(self, user: User, data: ChangePasswordRequest) -> None:
         if not verify_password(data.current_password, user.password_hash):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
-        await self._repo.update_fields(user.id, password_hash=hash_password(data.new_password))
+        from datetime import UTC
+        from datetime import datetime as dt
+
+        await self._repo.update_fields(
+            user.id,
+            password_hash=hash_password(data.new_password),
+            password_changed_at=dt.now(UTC),
+        )
+        await self._session.commit()
+
+    async def change_email(self, user: User, new_email: str, password: str) -> None:
+        if not verify_password(password, user.password_hash):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect password")
+        existing = await self._repo.get_by_email(new_email)
+        if existing is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+        await self._repo.update_fields(user.id, email=new_email)
         await self._session.commit()
 
     @staticmethod

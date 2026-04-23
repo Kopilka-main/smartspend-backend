@@ -34,6 +34,30 @@ class ProfileUpdate(CamelModel):
 
 class SettingsUpdate(CamelModel):
     theme: str | None = None
+    timezone: str | None = Field(None, max_length=50)
+    location: str | None = Field(None, max_length=100)
+    notify_new_sets: bool | None = None
+    notify_author_articles: bool | None = None
+    notify_subscriptions: bool | None = None
+    notify_set_changes: bool | None = None
+    notify_reminders: bool | None = None
+    privacy_sets: str | None = Field(None, pattern=r"^(all|followers|me)$")
+    privacy_articles: str | None = Field(None, pattern=r"^(all|followers|me)$")
+    privacy_profile: str | None = Field(None, pattern=r"^(all|followers|me)$")
+
+
+class SettingsResponse(CamelModel):
+    theme: str
+    timezone: str
+    location: str | None = None
+    notify_new_sets: bool
+    notify_author_articles: bool
+    notify_subscriptions: bool
+    notify_set_changes: bool
+    notify_reminders: bool
+    privacy_sets: str
+    privacy_articles: str
+    privacy_profile: str
 
 
 class AuthorInfo(CamelModel):

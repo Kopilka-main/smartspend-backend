@@ -53,3 +53,11 @@ class NotificationRepository:
             .values(is_read=True)
         )
         await self._session.execute(stmt)
+
+    async def set_action(self, notification_id: int, user_id: uuid.UUID, action_status: str) -> None:
+        stmt = (
+            update(Notification)
+            .where(Notification.id == notification_id, Notification.user_id == user_id)
+            .values(action_status=action_status, is_read=True)
+        )
+        await self._session.execute(stmt)

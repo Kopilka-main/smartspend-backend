@@ -72,9 +72,7 @@ class UserService:
         return _user_to_response(user)
 
     async def update_settings(self, user: User, data: SettingsUpdate) -> UserResponse:
-        updates: dict = {}
-        if data.theme is not None:
-            updates["theme"] = data.theme
+        updates = data.model_dump(exclude_unset=True)
         if updates:
             await self._repo.update_fields(user.id, **updates)
             await self._session.commit()

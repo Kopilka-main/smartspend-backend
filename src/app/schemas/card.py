@@ -26,6 +26,7 @@ class CardResponse(CamelModel):
     fee_desc: str | None = None
     url: str | None = None
     is_active: bool
+    calc_cashback: int | None = None
 
 
 class UserCardResponse(CamelModel):
@@ -38,6 +39,10 @@ class UserCardResponse(CamelModel):
 class UserCardCreate(CamelModel):
     card_id: str = Field(min_length=1, max_length=20)
     spending: dict | None = None
+
+
+class SpendingUpdate(CamelModel):
+    spending: dict
 
 
 class CardCalculateRequest(CamelModel):

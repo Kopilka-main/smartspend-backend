@@ -18,7 +18,9 @@ from src.app.schemas.promo import (
     PromoCommentResponse,
     PromoCreate,
     PromoResponse,
+    PromoVoteEntry,
 )
+from src.app.schemas.user import AuthorInfo
 
 
 class PromoService:
@@ -29,7 +31,12 @@ class PromoService:
         result = await self._session.execute(select(EnvelopeCategory.id, EnvelopeCategory.name))
         return dict(result.all())
 
-    async def _enrich_promo(self, promo: Promo, cats: dict[str, str] | None = None) -> PromoResponse:
+    async def _enrich_promo(
+        self,
+        promo: Promo,
+        cats: dict[str, str] | None = None,
+        viewer_id: uuid.UUID | None = None,
+    ) -> PromoResponse:
         if cats is None:
             cats = await self._get_cat_names()
 
@@ -48,6 +55,42 @@ class PromoService:
                     promo_types=c.promo_types,
                 )
 
+        comments_count = (
+            await self._session.execute(select(sa_func.count(PromoComment.id)).where(PromoComment.promo_id == promo.id))
+        ).scalar() or 0
+
+        my_vote = None
+        if viewer_id:
+            vote_row = (
+                await self._session.execute(
+                    select(PromoVote.vote).where(PromoVote.promo_id == promo.id, PromoVote.user_id == viewer_id)
+                )
+            ).scalar_one_or_none()
+            my_vote = vote_row
+
+        history_rows = (
+            await self._session.execute(
+                select(PromoVote.user_id, PromoVote.vote, PromoVote.created_at)
+                .where(PromoVote.promo_id == promo.id)
+                .order_by(PromoVote.created_at.desc())
+                .limit(40)
+            )
+        ).all()
+        vote_history = [PromoVoteEntry(user_id=str(r[0]), vote=r[1], created_at=r[2]) for r in reversed(history_rows)]
+
+        author = None
+        if promo.author_id:
+            u = await self._session.get(User, promo.author_id)
+            if u:
+                author = AuthorInfo(
+                    id=u.id,
+                    display_name=u.display_name,
+                    username=u.username,
+                    initials=u.initials,
+                    color=u.color,
+                    avatar_url=u.avatar_url,
+                )
+
         return PromoResponse(
             id=promo.id,
             type=promo.type,
@@ -55,6 +98,7 @@ class PromoService:
             category_id=promo.category_id,
             category_name=cats.get(promo.category_id) if promo.category_id else None,
             author_id=str(promo.author_id) if promo.author_id else None,
+            author=author,
             title=promo.title,
             text=promo.text,
             code=promo.code,
@@ -66,6 +110,9 @@ class PromoService:
             expires_at=promo.expires_at,
             votes_up=promo.votes_up,
             votes_down=promo.votes_down,
+            comments_count=comments_count,
+            my_vote=my_vote,
+            vote_history=vote_history,
             is_active=promo.is_active,
             created_at=promo.created_at,
             company=company,
@@ -128,13 +175,13 @@ class PromoService:
             cutoff = now - timedelta(days=days)
             promos = [p for p in promos if p.created_at and p.created_at >= cutoff]
 
-        return [await self._enrich_promo(p, cats) for p in promos], total
+        return [await self._enrich_promo(p, cats, user_id) for p in promos], total
 
-    async def get_promo(self, promo_id: int) -> PromoResponse:
+    async def get_promo(self, promo_id: int, viewer_id: uuid.UUID | None = None) -> PromoResponse:
         promo = await self._session.get(Promo, promo_id)
         if promo is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Promo not found")
-        return await self._enrich_promo(promo)
+        return await self._enrich_promo(promo, viewer_id=viewer_id)
 
     async def create_promo(self, user: User, data: PromoCreate) -> PromoResponse:
         promo = Promo(
@@ -155,7 +202,7 @@ class PromoService:
         await self._session.flush()
         await self._session.refresh(promo)
         await self._session.commit()
-        return await self._enrich_promo(promo)
+        return await self._enrich_promo(promo, viewer_id=user.id)
 
     async def vote(self, promo_id: int, user_id: uuid.UUID, vote: str) -> PromoResponse:
         promo = await self._session.get(Promo, promo_id)
@@ -179,7 +226,7 @@ class PromoService:
         await self._sync_votes(promo_id)
         await self._session.commit()
 
-        return await self.get_promo(promo_id)
+        return await self.get_promo(promo_id, viewer_id=user_id)
 
     async def _sync_votes(self, promo_id: int) -> None:
         up = (
