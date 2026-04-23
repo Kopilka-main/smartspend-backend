@@ -6,12 +6,29 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.company import Company, UserCompany
+from src.app.models.envelope_category import EnvelopeCategory
 from src.app.schemas.company import CompanyResponse, UserCompanyResponse
 
 
 class CompanyService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def _get_cat_names(self) -> dict[str, str]:
+        result = await self._session.execute(select(EnvelopeCategory.id, EnvelopeCategory.name))
+        return dict(result.all())
+
+    def _to_response(self, c: Company, cats: dict[str, str]) -> CompanyResponse:
+        return CompanyResponse(
+            id=c.id,
+            name=c.name,
+            abbr=c.abbr,
+            color=c.color,
+            category_id=c.category_id,
+            category_name=cats.get(c.category_id) if c.category_id else None,
+            description=c.description,
+            promo_types=c.promo_types,
+        )
 
     async def list_companies(
         self,
@@ -34,8 +51,9 @@ class CompanyService:
         query = query.order_by(Company.name).limit(limit).offset(offset)
         result = await self._session.execute(query)
         companies = result.scalars().all()
+        cats = await self._get_cat_names()
 
-        return [CompanyResponse.model_validate(c) for c in companies], total
+        return [self._to_response(c, cats) for c in companies], total
 
     async def list_user_companies(self, user_id: uuid.UUID) -> list[UserCompanyResponse]:
         result = await self._session.execute(

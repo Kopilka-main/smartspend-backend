@@ -9,6 +9,7 @@ class CompanyResponse(CamelModel):
     abbr: str | None = None
     color: str
     category_id: str | None = None
+    category_name: str | None = None
     description: str | None = None
     promo_types: list[str] | None = None
 

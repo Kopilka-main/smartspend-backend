@@ -1,3 +1,7 @@
+from datetime import datetime
+
+from pydantic import Field
+
 from src.app.schemas.base import CamelModel
 
 
@@ -19,6 +23,9 @@ class DepositResponse(CamelModel):
     conditions_text: str | None = None
     params: str | None = None
     is_active: bool
+    max_rate: float | None = None
+    calc_income: float | None = None
+    calc_total: float | None = None
 
 
 class DepositCalculation(CamelModel):
@@ -26,3 +33,21 @@ class DepositCalculation(CamelModel):
     rate: float
     income: float
     total_amount: float
+
+
+class DepositCommentResponse(CamelModel):
+    id: int
+    deposit_id: str
+    user_id: str | None = None
+    parent_id: int | None = None
+    initials: str
+    name: str
+    text: str
+    likes_count: int
+    dislikes_count: int
+    created_at: datetime
+
+
+class DepositCommentCreate(CamelModel):
+    text: str = Field(min_length=1, max_length=2000)
+    parent_id: int | None = None

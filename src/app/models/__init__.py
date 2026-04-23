@@ -7,6 +7,7 @@ from src.app.models.article_set_link import ArticleSetLink
 from src.app.models.card import Card, UserCard
 from src.app.models.company import Company, UserCompany
 from src.app.models.deposit import Deposit
+from src.app.models.deposit_comment import DepositComment
 from src.app.models.enums import (
     ArticleStatus,
     BlockType,
@@ -46,6 +47,7 @@ __all__ = [
     "Card",
     "Company",
     "Deposit",
+    "DepositComment",
     "Envelope",
     "EnvelopeCategory",
     "Follow",
