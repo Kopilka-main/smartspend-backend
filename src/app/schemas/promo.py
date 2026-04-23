@@ -11,10 +11,15 @@ class PromoResponse(CamelModel):
     type: str
     company_id: str | None = None
     category_id: str | None = None
+    category_name: str | None = None
     author_id: str | None = None
+    title: str | None = None
     text: str
+    code: str | None = None
     channel: str | None = None
     url: str | None = None
+    source_url: str | None = None
+    promo_filter: str | None = None
     conditions: list[str] | None = None
     expires_at: datetime | None = None
     votes_up: int
@@ -25,10 +30,15 @@ class PromoResponse(CamelModel):
 
 
 class PromoCreate(CamelModel):
-    type: str = Field(default="whisper", pattern=r"^whisper$")
+    type: str = Field(default="whisper", pattern=r"^(whisper|broadcast|event|coupon)$")
     company_id: str | None = None
     category_id: str | None = None
+    title: str | None = Field(None, max_length=300)
     text: str = Field(min_length=1, max_length=5000)
+    code: str | None = Field(None, max_length=100)
+    source_url: str | None = None
+    channel: str | None = Field(None, max_length=50)
+    promo_filter: str | None = Field(None, max_length=30)
     conditions: list[str] | None = None
     expires_at: datetime | None = None
 

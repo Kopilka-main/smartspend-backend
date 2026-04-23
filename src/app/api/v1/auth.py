@@ -46,10 +46,15 @@ async def logout(_: CurrentUser):
 
 @router.get("/me", response_model=ApiResponse[UserResponse])
 async def me(user: CurrentUser, session: Session):
+    from sqlalchemy import select as sa_select
+
+    from src.app.models.company import UserCompany
     from src.app.repositories.follow import FollowRepository
 
     fc = await FollowRepository(session).count_followers(user.id)
-    return ApiResponse(data=_user_to_response(user, followers_count=fc))
+    uc_result = await session.execute(sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1))
+    has_promo = uc_result.scalar_one_or_none() is not None
+    return ApiResponse(data=_user_to_response(user, followers_count=fc, has_promo_setup=has_promo))
 
 
 @router.post("/change-password", response_model=ApiResponse[None])

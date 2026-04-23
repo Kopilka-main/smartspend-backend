@@ -35,6 +35,12 @@ class DepositCalculation(CamelModel):
     total_amount: float
 
 
+class DepositChartPoint(CamelModel):
+    months: int
+    label: str
+    max_rate: float
+
+
 class DepositCommentResponse(CamelModel):
     id: int
     deposit_id: str

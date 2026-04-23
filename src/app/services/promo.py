@@ -1,12 +1,15 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.company import Company
+from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.promo import Promo, PromoComment, PromoVote
 from src.app.models.user import User
 from src.app.schemas.company import CompanyResponse
@@ -22,22 +25,43 @@ class PromoService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def _enrich_promo(self, promo: Promo) -> PromoResponse:
+    async def _get_cat_names(self) -> dict[str, str]:
+        result = await self._session.execute(select(EnvelopeCategory.id, EnvelopeCategory.name))
+        return dict(result.all())
+
+    async def _enrich_promo(self, promo: Promo, cats: dict[str, str] | None = None) -> PromoResponse:
+        if cats is None:
+            cats = await self._get_cat_names()
+
         company = None
         if promo.company_id:
             c = await self._session.get(Company, promo.company_id)
             if c:
-                company = CompanyResponse.model_validate(c)
+                company = CompanyResponse(
+                    id=c.id,
+                    name=c.name,
+                    abbr=c.abbr,
+                    color=c.color,
+                    category_id=c.category_id,
+                    category_name=cats.get(c.category_id) if c.category_id else None,
+                    description=c.description,
+                    promo_types=c.promo_types,
+                )
 
         return PromoResponse(
             id=promo.id,
             type=promo.type,
             company_id=promo.company_id,
             category_id=promo.category_id,
+            category_name=cats.get(promo.category_id) if promo.category_id else None,
             author_id=str(promo.author_id) if promo.author_id else None,
+            title=promo.title,
             text=promo.text,
+            code=promo.code,
             channel=promo.channel,
             url=promo.url,
+            source_url=promo.source_url,
+            promo_filter=promo.promo_filter,
             conditions=promo.conditions,
             expires_at=promo.expires_at,
             votes_up=promo.votes_up,
@@ -51,32 +75,60 @@ class PromoService:
         self,
         promo_type: str | None = None,
         scope: str = "all",
-        category_id: str | None = None,
-        condition: str | None = None,
+        category_ids: list[str] | None = None,
+        company_ids: list[str] | None = None,
+        promo_filter: str | None = None,
+        search: str | None = None,
+        sort: str = "newest",
         user_id: uuid.UUID | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[PromoResponse], int]:
         query = select(Promo).where(Promo.is_active.is_(True))
 
-        if promo_type:
-            query = query.where(Promo.type == promo_type)
+        if promo_type and promo_type != "all":
+            if promo_type == "official":
+                query = query.where(Promo.type.in_(["event", "coupon"]))
+            else:
+                query = query.where(Promo.type == promo_type)
+
         if scope == "mine" and user_id:
-            query = query.where(Promo.author_id == user_id)
-        if category_id:
-            query = query.where(Promo.category_id == category_id)
-        if condition:
-            query = query.where(Promo.conditions.any(condition))
+            from src.app.models.company import UserCompany
 
-        count_q = query.with_only_columns(Promo.id)
-        count_result = await self._session.execute(count_q)
-        total = len(count_result.all())
+            sub = select(UserCompany.company_id).where(UserCompany.user_id == user_id)
+            query = query.where(Promo.company_id.in_(sub))
 
-        query = query.order_by(Promo.created_at.desc()).limit(limit).offset(offset)
+        if category_ids:
+            query = query.where(Promo.category_id.in_(category_ids))
+        if company_ids:
+            query = query.where(Promo.company_id.in_(company_ids))
+        if promo_filter and promo_filter != "all":
+            query = query.where(Promo.promo_filter == promo_filter)
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(Promo.title.ilike(pattern) | Promo.text.ilike(pattern))
+
+        count_q = query.with_only_columns(sa_func.count(Promo.id))
+        total = (await self._session.execute(count_q)).scalar() or 0
+
+        if sort == "newest":
+            query = query.order_by(Promo.created_at.desc())
+        elif sort in ("votes_7d", "votes_30d", "votes_all"):
+            query = query.order_by((Promo.votes_up - Promo.votes_down).desc(), Promo.created_at.desc())
+
+        query = query.limit(limit).offset(offset)
         result = await self._session.execute(query)
         promos = result.scalars().all()
 
-        return [await self._enrich_promo(p) for p in promos], total
+        cats = await self._get_cat_names()
+
+        if sort in ("votes_7d", "votes_30d"):
+            now = datetime.now(UTC)
+            days = 7 if sort == "votes_7d" else 30
+            cutoff = now - timedelta(days=days)
+            promos = [p for p in promos if p.created_at and p.created_at >= cutoff]
+
+        return [await self._enrich_promo(p, cats) for p in promos], total
 
     async def get_promo(self, promo_id: int) -> PromoResponse:
         promo = await self._session.get(Promo, promo_id)
@@ -90,7 +142,12 @@ class PromoService:
             company_id=data.company_id,
             category_id=data.category_id,
             author_id=user.id,
+            title=data.title,
             text=data.text,
+            code=data.code,
+            source_url=data.source_url,
+            channel=data.channel,
+            promo_filter=data.promo_filter,
             conditions=data.conditions,
             expires_at=data.expires_at,
         )
@@ -125,32 +182,36 @@ class PromoService:
         return await self.get_promo(promo_id)
 
     async def _sync_votes(self, promo_id: int) -> None:
-        up_result = await self._session.execute(
-            select(PromoVote.id).where(PromoVote.promo_id == promo_id, PromoVote.vote == "up")
-        )
-        down_result = await self._session.execute(
-            select(PromoVote.id).where(PromoVote.promo_id == promo_id, PromoVote.vote == "down")
-        )
-        await self._session.execute(
-            sa_update(Promo)
-            .where(Promo.id == promo_id)
-            .values(votes_up=len(up_result.all()), votes_down=len(down_result.all()))
-        )
+        up = (
+            await self._session.execute(
+                select(sa_func.count(PromoVote.id)).where(PromoVote.promo_id == promo_id, PromoVote.vote == "up")
+            )
+        ).scalar() or 0
+        down = (
+            await self._session.execute(
+                select(sa_func.count(PromoVote.id)).where(PromoVote.promo_id == promo_id, PromoVote.vote == "down")
+            )
+        ).scalar() or 0
+        await self._session.execute(sa_update(Promo).where(Promo.id == promo_id).values(votes_up=up, votes_down=down))
 
     async def list_comments(
         self,
         promo_id: int,
+        sort: str = "new",
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[PromoCommentResponse], int]:
-        query = select(PromoComment).where(PromoComment.promo_id == promo_id)
+        base = select(PromoComment).where(PromoComment.promo_id == promo_id)
+        total = (await self._session.execute(base.with_only_columns(sa_func.count(PromoComment.id)))).scalar() or 0
 
-        count_q = query.with_only_columns(PromoComment.id)
-        count_result = await self._session.execute(count_q)
-        total = len(count_result.all())
+        if sort == "top":
+            order = (PromoComment.likes_count - PromoComment.dislikes_count).desc()
+        elif sort == "old":
+            order = PromoComment.created_at.asc()
+        else:
+            order = PromoComment.created_at.desc()
 
-        query = query.order_by(PromoComment.created_at.asc()).limit(limit).offset(offset)
-        result = await self._session.execute(query)
+        result = await self._session.execute(base.order_by(order).limit(limit).offset(offset))
         comments = result.scalars().all()
 
         return [

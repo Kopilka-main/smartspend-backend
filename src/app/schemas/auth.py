@@ -50,6 +50,7 @@ class UserResponse(CamelModel):
     theme: str
     joined_at: datetime
     followers_count: int = 0
+    has_promo_setup: bool = False
     finance: UserFinanceInline | None = None
 
 

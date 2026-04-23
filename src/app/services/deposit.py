@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.deposit import Deposit
 from src.app.models.deposit_comment import DepositComment
-from src.app.schemas.deposit import DepositCalculation, DepositCommentResponse, DepositResponse
+from src.app.schemas.deposit import DepositCalculation, DepositChartPoint, DepositCommentResponse, DepositResponse
 
 
 class DepositService:
@@ -214,3 +214,50 @@ class DepositService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your comment")
         await self._session.delete(comment)
         await self._session.commit()
+
+    async def chart(
+        self,
+        bank_names: list[str] | None = None,
+        freq: str | None = None,
+        conditions: str | None = None,
+        replenishment: bool | None = None,
+    ) -> list[DepositChartPoint]:
+        query = select(Deposit).where(Deposit.is_active.is_(True))
+        if bank_names:
+            query = query.where(Deposit.bank_name.in_(bank_names))
+        if freq:
+            query = query.where(Deposit.freq == freq)
+        if conditions:
+            query = query.where(Deposit.conditions.any(conditions))
+        if replenishment is not None:
+            query = query.where(Deposit.replenishment.is_(replenishment))
+
+        result = await self._session.execute(query)
+        deposits = result.scalars().all()
+
+        periods = [
+            (1, "1 мес"),
+            (2, "2 мес"),
+            (3, "3 мес"),
+            (4, "4 мес"),
+            (5, "5 мес"),
+            (6, "6 мес"),
+            (9, "9 мес"),
+            (12, "1 год"),
+            (15, "15 мес"),
+            (18, "1.5 года"),
+            (24, "2 года"),
+            (36, "3 года"),
+        ]
+
+        points = []
+        for months, label in periods:
+            best = 0.0
+            for d in deposits:
+                rates = d.rates or {}
+                rate = self._pick_rate(rates, months)
+                if rate > best:
+                    best = rate
+            points.append(DepositChartPoint(months=months, label=label, max_rate=best))
+
+        return points

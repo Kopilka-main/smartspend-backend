@@ -30,7 +30,7 @@ def _build_initials(display_name: str) -> str:
     return "".join(p[0] for p in parts if p)[:2].upper() or "??"
 
 
-def _user_to_response(user: User, followers_count: int = 0) -> UserResponse:
+def _user_to_response(user: User, followers_count: int = 0, has_promo_setup: bool = False) -> UserResponse:
     finance_data = None
     if user.finance:
         finance_data = UserFinanceInline(
@@ -54,6 +54,7 @@ def _user_to_response(user: User, followers_count: int = 0) -> UserResponse:
         theme=user.theme,
         joined_at=user.joined_at,
         followers_count=followers_count,
+        has_promo_setup=has_promo_setup,
         finance=finance_data,
     )
 
@@ -96,7 +97,17 @@ class AuthService:
         tokens = self._issue_tokens(user.id)
         follow_repo = FollowRepository(self._session)
         fc = await follow_repo.count_followers(user.id)
-        return _user_to_response(user, followers_count=fc), tokens
+
+        from sqlalchemy import select as sa_select
+
+        from src.app.models.company import UserCompany
+
+        uc_result = await self._session.execute(
+            sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1)
+        )
+        has_promo = uc_result.scalar_one_or_none() is not None
+
+        return _user_to_response(user, followers_count=fc, has_promo_setup=has_promo), tokens
 
     async def refresh(self, refresh_token: str) -> TokenPair:
         payload = decode_token(refresh_token)

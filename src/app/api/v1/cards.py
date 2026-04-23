@@ -14,11 +14,24 @@ from src.app.services.card import CardService
 router = APIRouter(prefix="/cards", tags=["cards"])
 
 
+@router.get("/banks", response_model=ApiResponse[list[str]])
+async def list_card_banks(session: Session):
+    from sqlalchemy import select as sa_select
+
+    from src.app.models.card import Card
+
+    result = await session.execute(
+        sa_select(Card.bank_name).where(Card.is_active.is_(True)).distinct().order_by(Card.bank_name)
+    )
+    return ApiResponse(data=[r[0] for r in result.all()])
+
+
 @router.get("", response_model=ApiResponse[list[CardResponse]])
 async def list_cards(
     session: Session,
     card_type: str | None = Query(None, alias="cardType"),
     bank_name: str | None = Query(None, alias="bankName"),
+    search: str | None = Query(None, alias="q"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -26,6 +39,7 @@ async def list_cards(
     items, total = await service.list_cards(
         card_type=card_type,
         bank_name=bank_name,
+        search=search,
         limit=limit,
         offset=offset,
     )

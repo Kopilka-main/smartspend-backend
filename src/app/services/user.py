@@ -40,7 +40,17 @@ class UserService:
         self._repo = UserRepository(session)
 
     async def get_profile(self, user: User) -> UserResponse:
-        return _user_to_response(user)
+        from sqlalchemy import select as sa_select
+
+        from src.app.models.company import UserCompany
+
+        follow_repo = FollowRepository(self._session)
+        fc = await follow_repo.count_followers(user.id)
+        uc_result = await self._session.execute(
+            sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1)
+        )
+        has_promo = uc_result.scalar_one_or_none() is not None
+        return _user_to_response(user, followers_count=fc, has_promo_setup=has_promo)
 
     async def update_profile(self, user: User, data: ProfileUpdate) -> UserResponse:
         updates: dict = {}

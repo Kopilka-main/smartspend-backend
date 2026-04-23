@@ -4,6 +4,7 @@ from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.base import ApiResponse, PaginationMeta
 from src.app.schemas.deposit import (
     DepositCalculation,
+    DepositChartPoint,
     DepositCommentCreate,
     DepositCommentResponse,
     DepositResponse,
@@ -42,6 +43,31 @@ async def list_deposits(
         data=items,
         meta=PaginationMeta(total=total, limit=limit, offset=offset).model_dump(by_alias=True),
     )
+
+
+@router.get("/chart", response_model=ApiResponse[list[DepositChartPoint]])
+async def deposit_chart(
+    session: Session,
+    banks: str | None = Query(None),
+    freq: str | None = Query(None),
+    conditions: str | None = Query(None),
+    replenishment: bool | None = Query(None),
+):
+    bank_list = [b.strip() for b in banks.split(",") if b.strip()] if banks else None
+    service = DepositService(session)
+    return ApiResponse(data=await service.chart(bank_list, freq, conditions, replenishment))
+
+
+@router.get("/banks", response_model=ApiResponse[list[str]])
+async def list_banks(session: Session):
+    from sqlalchemy import select as sa_select
+
+    from src.app.models.deposit import Deposit
+
+    result = await session.execute(
+        sa_select(Deposit.bank_name).where(Deposit.is_active.is_(True)).distinct().order_by(Deposit.bank_name)
+    )
+    return ApiResponse(data=[r[0] for r in result.all()])
 
 
 @router.get("/{deposit_id}", response_model=ApiResponse[DepositResponse])

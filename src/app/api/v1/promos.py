@@ -20,18 +20,26 @@ async def list_promos(
     current_user: OptionalUser,
     type: str | None = Query(None),
     scope: str = Query("all"),
-    category_id: str | None = Query(None, alias="categoryId"),
-    condition: str | None = Query(None),
+    category_ids: str | None = Query(None, alias="categoryIds"),
+    company_ids: str | None = Query(None, alias="companyIds"),
+    promo_filter: str | None = Query(None, alias="promoFilter"),
+    search: str | None = Query(None, alias="q"),
+    sort: str = Query("newest"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     user_id = current_user.id if current_user else None
+    cats = [c.strip() for c in category_ids.split(",") if c.strip()] if category_ids else None
+    cos = [c.strip() for c in company_ids.split(",") if c.strip()] if company_ids else None
     service = PromoService(session)
     items, total = await service.list_promos(
         promo_type=type,
         scope=scope,
-        category_id=category_id,
-        condition=condition,
+        category_ids=cats,
+        company_ids=cos,
+        promo_filter=promo_filter,
+        search=search,
+        sort=sort,
         user_id=user_id,
         limit=limit,
         offset=offset,
@@ -64,11 +72,12 @@ async def vote_promo(promo_id: int, body: PromoVoteRequest, user: CurrentUser, s
 async def list_promo_comments(
     promo_id: int,
     session: Session,
+    sort: str = Query("new"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     service = PromoService(session)
-    comments, total = await service.list_comments(promo_id, limit, offset)
+    comments, total = await service.list_comments(promo_id, sort, limit, offset)
     return ApiResponse(
         data=comments,
         meta=PaginationMeta(total=total, limit=limit, offset=offset).model_dump(by_alias=True),

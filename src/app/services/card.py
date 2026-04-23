@@ -22,6 +22,7 @@ class CardService:
         self,
         card_type: str | None = None,
         bank_name: str | None = None,
+        search: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[CardResponse], int]:
@@ -31,6 +32,9 @@ class CardService:
             query = query.where(Card.card_type == card_type)
         if bank_name:
             query = query.where(Card.bank_name.ilike(f"%{bank_name}%"))
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(Card.bank_name.ilike(pattern) | Card.name.ilike(pattern))
 
         count_q = query.with_only_columns(Card.id)
         count_result = await self._session.execute(count_q)
