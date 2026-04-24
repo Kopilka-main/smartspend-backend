@@ -82,6 +82,13 @@ class PromoService:
         if promo.author_id:
             u = await self._session.get(User, promo.author_id)
             if u:
+                from src.app.repositories.article import ArticleRepository
+                from src.app.repositories.catalog import CatalogRepository
+                from src.app.repositories.follow import FollowRepository
+
+                fc = await FollowRepository(self._session).count_followers(u.id)
+                ac = await ArticleRepository(self._session).count_by_author(u.id)
+                _, sc = await CatalogRepository(self._session).list_by_author(u.id, limit=0, offset=0)
                 author = AuthorInfo(
                     id=u.id,
                     display_name=u.display_name,
@@ -89,6 +96,9 @@ class PromoService:
                     initials=u.initials,
                     color=u.color,
                     avatar_url=u.avatar_url,
+                    followers_count=fc,
+                    articles_count=ac,
+                    sets_count=sc,
                 )
 
         return PromoResponse(
@@ -159,9 +169,9 @@ class PromoService:
         total = (await self._session.execute(count_q)).scalar() or 0
 
         if sort == "newest":
-            query = query.order_by(Promo.created_at.desc())
+            query = query.order_by(Promo.created_at.desc(), Promo.id.desc())
         elif sort in ("votes_7d", "votes_30d", "votes_all"):
-            query = query.order_by((Promo.votes_up - Promo.votes_down).desc(), Promo.created_at.desc())
+            query = query.order_by((Promo.votes_up - Promo.votes_down).desc(), Promo.created_at.desc(), Promo.id.desc())
 
         query = query.limit(limit).offset(offset)
         result = await self._session.execute(query)
