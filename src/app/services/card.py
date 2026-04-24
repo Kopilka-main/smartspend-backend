@@ -140,21 +140,18 @@ class CardService:
         return responses
 
     async def get_spending(self, user_id: uuid.UUID) -> dict:
-        result = await self._session.execute(
-            select(UserCard.spending).where(UserCard.user_id == user_id).order_by(UserCard.created_at.desc()).limit(1)
-        )
+        from src.app.models.user_finance import UserFinance
+
+        result = await self._session.execute(select(UserFinance.card_spending).where(UserFinance.user_id == user_id))
         row = result.scalar_one_or_none()
         return row or {}
 
     async def update_spending(self, user_id: uuid.UUID, spending: dict) -> dict:
-        result = await self._session.execute(select(UserCard.id).where(UserCard.user_id == user_id).limit(1))
-        uc_id = result.scalar_one_or_none()
-        if uc_id:
-            await self._session.execute(sa_update(UserCard).where(UserCard.id == uc_id).values(spending=spending))
-        else:
-            uc = UserCard(user_id=user_id, card_id="__spending__", spending=spending)
-            self._session.add(uc)
-            await self._session.flush()
+        from src.app.models.user_finance import UserFinance
+
+        await self._session.execute(
+            sa_update(UserFinance).where(UserFinance.user_id == user_id).values(card_spending=spending)
+        )
         await self._session.commit()
         return spending
 
