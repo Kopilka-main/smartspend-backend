@@ -21,7 +21,7 @@ class UserFinance(Base):
     credit_months: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     capital: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     emo_rate: Mapped[Decimal] = mapped_column(Numeric(4, 2), nullable=False, default=Decimal("0.05"))
-    card_spending: Mapped[dict | None] = mapped_column(nullable=True)
+    card_spending: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
