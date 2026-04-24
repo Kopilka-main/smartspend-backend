@@ -37,6 +37,7 @@ class CardService:
             bank_name=card.bank_name,
             bank_color=card.bank_color,
             bank_text_color=card.bank_text_color,
+            bank_abbr=card.bank_abbr,
             name=card.name,
             card_type=card.card_type,
             cashback=card.cashback,

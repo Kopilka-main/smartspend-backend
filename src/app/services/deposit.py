@@ -64,6 +64,7 @@ class DepositService:
             bank_name=d.bank_name,
             bank_color=d.bank_color,
             bank_text_color=d.bank_text_color,
+            bank_abbr=d.bank_abbr,
             name=d.name,
             rates=d.rates,
             min_amount=d.min_amount,
