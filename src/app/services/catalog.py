@@ -4,12 +4,14 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.enums import SetSource
 from src.app.models.envelope_category import EnvelopeCategory
+from src.app.models.saved_set import SavedSet
 from src.app.models.set import Set, SetItem
 from src.app.models.set_comment import SetComment
 from src.app.models.set_photo import SetPhoto
@@ -206,8 +208,6 @@ class CatalogService:
 
     async def _get_category_names(self) -> dict[str, str]:
         if self._cat_cache is None:
-            from sqlalchemy import select
-
             result = await self._session.execute(select(EnvelopeCategory.id, EnvelopeCategory.name))
             self._cat_cache = dict(result.all())
         return self._cat_cache
@@ -499,8 +499,6 @@ class CatalogService:
         await self._session.commit()
 
     async def bookmark(self, set_id: str, user_id) -> None:
-        from src.app.models.saved_set import SavedSet
-
         s = await self._repo.get_by_id(set_id)
         if s is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
@@ -513,10 +511,6 @@ class CatalogService:
         await self._session.commit()
 
     async def unbookmark(self, set_id: str, user_id) -> None:
-        from sqlalchemy import delete as sa_delete
-
-        from src.app.models.saved_set import SavedSet
-
         result = await self._session.execute(
             sa_delete(SavedSet).where(SavedSet.user_id == user_id, SavedSet.set_id == set_id)
         )

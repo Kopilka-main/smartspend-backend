@@ -11,6 +11,7 @@ from src.app.schemas.catalog import (
     SetResponse,
     SetUpdate,
 )
+from src.app.services.article import ArticleService
 from src.app.services.catalog import CatalogService
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -117,8 +118,6 @@ async def delete_comment(comment_id: int, user: CurrentUser, session: Session):
 
 @router.get("/{set_id}/articles", response_model=ApiResponse[list])
 async def get_set_articles(set_id: str, session: Session):
-    from src.app.services.article import ArticleService
-
     service = ArticleService(session)
     items, _total = await service.list_published(linked_set_id=set_id)
     return ApiResponse(data=items)

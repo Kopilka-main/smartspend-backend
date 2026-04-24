@@ -4,9 +4,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.card import Card, UserCard
+from src.app.models.company import Company, UserCompany
 from src.app.schemas.card import (
     CardCalculateResponse,
     CardResponse,
@@ -79,11 +81,7 @@ class CardService:
         if condition and condition != "all":
             query = query.where(Card.conditions.any(condition))
         if scope == "mine" and user_id:
-            from src.app.models.company import UserCompany
-
             sub = select(UserCompany.company_id).where(UserCompany.user_id == user_id)
-            from src.app.models.company import Company
-
             bank_sub = select(Company.name).where(Company.id.in_(sub))
             query = query.where(Card.bank_name.in_(bank_sub))
 
@@ -148,8 +146,6 @@ class CardService:
         return row or {}
 
     async def update_spending(self, user_id: uuid.UUID, spending: dict) -> dict:
-        from sqlalchemy import update as sa_update
-
         result = await self._session.execute(select(UserCard.id).where(UserCard.user_id == user_id).limit(1))
         uc_id = result.scalar_one_or_none()
         if uc_id:

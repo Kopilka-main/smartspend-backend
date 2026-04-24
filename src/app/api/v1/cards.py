@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Query
+from sqlalchemy import select as sa_select
 
 from src.app.core.dependencies import CurrentUser, OptionalUser, Session
+from src.app.models.card import Card
 from src.app.schemas.base import ApiResponse, PaginationMeta
 from src.app.schemas.card import (
     CardCalculateRequest,
@@ -17,10 +19,6 @@ router = APIRouter(prefix="/cards", tags=["cards"])
 
 @router.get("/banks", response_model=ApiResponse[list[str]])
 async def list_card_banks(session: Session):
-    from sqlalchemy import select as sa_select
-
-    from src.app.models.card import Card
-
     result = await session.execute(
         sa_select(Card.bank_name).where(Card.is_active.is_(True)).distinct().order_by(Card.bank_name)
     )

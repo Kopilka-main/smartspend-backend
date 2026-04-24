@@ -1,6 +1,9 @@
 from fastapi import APIRouter
+from sqlalchemy import select as sa_select
 
 from src.app.core.dependencies import CurrentUser, Session
+from src.app.models.company import UserCompany
+from src.app.repositories.follow import FollowRepository
 from src.app.schemas.auth import (
     AuthResponse,
     ChangeEmailRequest,
@@ -47,11 +50,6 @@ async def logout(_: CurrentUser):
 
 @router.get("/me", response_model=ApiResponse[UserResponse])
 async def me(user: CurrentUser, session: Session):
-    from sqlalchemy import select as sa_select
-
-    from src.app.models.company import UserCompany
-    from src.app.repositories.follow import FollowRepository
-
     fc = await FollowRepository(session).count_followers(user.id)
     uc_result = await session.execute(sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1))
     has_promo = uc_result.scalar_one_or_none() is not None

@@ -3,9 +3,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import HTTPException, status
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.core.security import verify_password
+from src.app.models.company import UserCompany
 from src.app.models.enums import UserStatus
 from src.app.models.user import User
 from src.app.repositories.article import ArticleRepository
@@ -40,10 +42,6 @@ class UserService:
         self._repo = UserRepository(session)
 
     async def get_profile(self, user: User) -> UserResponse:
-        from sqlalchemy import select as sa_select
-
-        from src.app.models.company import UserCompany
-
         follow_repo = FollowRepository(self._session)
         fc = await follow_repo.count_followers(user.id)
         uc_result = await self._session.execute(

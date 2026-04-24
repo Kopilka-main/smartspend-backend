@@ -8,10 +8,13 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.models.company import Company
+from src.app.models.company import Company, UserCompany
 from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.promo import Promo, PromoComment, PromoVote
 from src.app.models.user import User
+from src.app.repositories.article import ArticleRepository
+from src.app.repositories.catalog import CatalogRepository
+from src.app.repositories.follow import FollowRepository
 from src.app.schemas.company import CompanyResponse
 from src.app.schemas.promo import (
     PromoCommentCreate,
@@ -82,10 +85,6 @@ class PromoService:
         if promo.author_id:
             u = await self._session.get(User, promo.author_id)
             if u:
-                from src.app.repositories.article import ArticleRepository
-                from src.app.repositories.catalog import CatalogRepository
-                from src.app.repositories.follow import FollowRepository
-
                 fc = await FollowRepository(self._session).count_followers(u.id)
                 ac = await ArticleRepository(self._session).count_by_author(u.id)
                 _, sc = await CatalogRepository(self._session).list_by_author(u.id, limit=0, offset=0)
@@ -150,8 +149,6 @@ class PromoService:
                 query = query.where(Promo.type == promo_type)
 
         if scope == "mine" and user_id:
-            from src.app.models.company import UserCompany
-
             sub = select(UserCompany.company_id).where(UserCompany.user_id == user_id)
             query = query.where(Promo.company_id.in_(sub))
 

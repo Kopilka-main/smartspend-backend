@@ -1,7 +1,10 @@
+import contextlib
 import time
 import uuid
 from datetime import date
+from pathlib import Path
 
+import aiofiles
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy import update as sa_update
@@ -9,9 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.article import Article, ArticleBlock
 from src.app.models.article_comment import ArticleComment
+from src.app.models.article_note import ArticleNote
 from src.app.models.article_photo import ArticlePhoto
 from src.app.models.article_read import ArticleRead
 from src.app.models.article_set_link import ArticleSetLink
+from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.set import Set
 from src.app.models.user import User
 from src.app.repositories.article import ArticleRepository
@@ -21,10 +26,13 @@ from src.app.schemas.article import (
     ArticleCommentResponse,
     ArticleCreate,
     ArticleListItem,
+    ArticleNoteResponse,
     ArticlePhotoResponse,
     ArticleResponse,
     ArticleSetLinkCreate,
     ArticleUpdate,
+    LinkedSetInfo,
+    SetLinkCard,
 )
 from src.app.schemas.user import AuthorInfo
 
@@ -55,8 +63,6 @@ def _article_to_response(
     linked_sets: list | None = None,
     set_link=None,
 ) -> ArticleResponse:
-    from src.app.schemas.article import ArticlePhotoResponse
-
     photos = [
         ArticlePhotoResponse(id=p.id, url=p.url, file_name=p.file_name, position=p.position, created_at=p.created_at)
         for p in (a.photos or [])
@@ -128,9 +134,6 @@ class ArticleService:
         self._repo = ArticleRepository(session)
 
     async def _resolve_sets_and_cats(self, articles: list[Article]):
-        from src.app.models.envelope_category import EnvelopeCategory
-        from src.app.schemas.article import LinkedSetInfo
-
         all_set_ids: set[str] = set()
         cat_ids: set[str] = set()
         for a in articles:
@@ -188,8 +191,6 @@ class ArticleService:
         return sets_map, sets_raw, cats_map
 
     async def _enrich_article(self, a, sets_map, sets_raw, cats_map):
-        from src.app.schemas.article import SetLinkCard
-
         set_title = sets_map[a.linked_set_id].title if a.linked_set_id and a.linked_set_id in sets_map else None
         cat_name = cats_map.get(a.category_id) if a.category_id else None
         linked = [sets_map[sid] for sid in (a.linked_set_ids or []) if sid in sets_map]
@@ -268,8 +269,6 @@ class ArticleService:
             for b in (a.blocks or [])
         ]
         if user_id:
-            from src.app.schemas.article import ArticleNoteResponse
-
             notes = await self._get_notes(article_id, user_id)
             resp.notes = [ArticleNoteResponse(**n) for n in notes]
         return resp
@@ -474,8 +473,6 @@ class ArticleService:
             user_id=user.id,
             set_id=data.set_id,
         )
-        import contextlib
-
         with contextlib.suppress(Exception):
             await self._repo.link_to_set(link)
         await self._session.commit()
@@ -485,10 +482,6 @@ class ArticleService:
         await self._session.commit()
 
     async def add_photo(self, article_id: str, user: User, file: UploadFile) -> ArticlePhotoResponse:
-        from pathlib import Path
-
-        import aiofiles
-
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
@@ -523,8 +516,6 @@ class ArticleService:
         )
 
     async def delete_photo(self, photo_id: int, user: User) -> None:
-        from pathlib import Path
-
         photo = await self._session.get(ArticlePhoto, photo_id)
         if photo is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
@@ -538,8 +529,6 @@ class ArticleService:
         await self._session.commit()
 
     async def add_note(self, article_id: str, user, text: str) -> dict:
-        from src.app.models.article_note import ArticleNote
-
         if not text or not text.strip():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Text is required")
         note = ArticleNote(article_id=article_id, user_id=user.id, text=text.strip())
@@ -550,8 +539,6 @@ class ArticleService:
         return {"id": note.id, "text": note.text, "createdAt": note.created_at.isoformat()}
 
     async def delete_note(self, note_id: int, user) -> None:
-        from src.app.models.article_note import ArticleNote
-
         note = await self._session.get(ArticleNote, note_id)
         if note is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
@@ -561,8 +548,6 @@ class ArticleService:
         await self._session.commit()
 
     async def _get_notes(self, article_id: str, user_id) -> list:
-        from src.app.models.article_note import ArticleNote
-
         stmt = (
             select(ArticleNote)
             .where(ArticleNote.article_id == article_id, ArticleNote.user_id == user_id)

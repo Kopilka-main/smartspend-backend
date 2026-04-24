@@ -1,6 +1,8 @@
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.core.security import (
@@ -10,6 +12,7 @@ from src.app.core.security import (
     hash_password,
     verify_password,
 )
+from src.app.models.company import UserCompany
 from src.app.models.enums import UserStatus
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
@@ -99,10 +102,6 @@ class AuthService:
         follow_repo = FollowRepository(self._session)
         fc = await follow_repo.count_followers(user.id)
 
-        from sqlalchemy import select as sa_select
-
-        from src.app.models.company import UserCompany
-
         uc_result = await self._session.execute(
             sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1)
         )
@@ -129,13 +128,10 @@ class AuthService:
     async def change_password(self, user: User, data: ChangePasswordRequest) -> None:
         if not verify_password(data.current_password, user.password_hash):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
-        from datetime import UTC
-        from datetime import datetime as dt
-
         await self._repo.update_fields(
             user.id,
             password_hash=hash_password(data.new_password),
-            password_changed_at=dt.now(UTC),
+            password_changed_at=datetime.now(UTC),
         )
         await self._session.commit()
 

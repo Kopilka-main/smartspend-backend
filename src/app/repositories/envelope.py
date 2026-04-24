@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.envelope import Envelope
 from src.app.models.envelope_category import EnvelopeCategory
+from src.app.models.set import Set
 
 
 class EnvelopeRepository:
@@ -15,8 +16,6 @@ class EnvelopeRepository:
         return await self._session.get(Envelope, envelope_id)
 
     async def list_by_user(self, user_id: uuid.UUID) -> list[tuple[Envelope, str | None]]:
-        from src.app.models.set import Set
-
         stmt = (
             select(Envelope, Set.source)
             .outerjoin(Set, Envelope.set_id == Set.id)

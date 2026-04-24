@@ -2,6 +2,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.app.models.reaction import Reaction
 from src.app.models.set import Set, SetItem
 from src.app.models.set_comment import SetComment
 
@@ -32,8 +33,6 @@ class CatalogRepository:
         offset: int = 0,
         user_id=None,
     ) -> tuple[list[Set], int]:
-        from src.app.models.reaction import Reaction
-
         base = (
             select(Set)
             .options(selectinload(Set.items), selectinload(Set.author), selectinload(Set.comments))

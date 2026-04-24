@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Query
+from sqlalchemy import select as sa_select
 
 from src.app.core.dependencies import CurrentUser, Session
+from src.app.models.deposit import Deposit
 from src.app.schemas.base import ApiResponse, PaginationMeta
 from src.app.schemas.deposit import (
     DepositCalculation,
@@ -60,10 +62,6 @@ async def deposit_chart(
 
 @router.get("/banks", response_model=ApiResponse[list[str]])
 async def list_banks(session: Session):
-    from sqlalchemy import select as sa_select
-
-    from src.app.models.deposit import Deposit
-
     result = await session.execute(
         sa_select(Deposit.bank_name).where(Deposit.is_active.is_(True)).distinct().order_by(Deposit.bank_name)
     )
