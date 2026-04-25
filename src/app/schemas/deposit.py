@@ -23,6 +23,7 @@ class DepositResponse(CamelModel):
     tags: list[str] | None = None
     conditions_text: str | None = None
     params: str | None = None
+    tariff: dict | None = None
     is_active: bool
     max_rate: float | None = None
     calc_income: float | None = None

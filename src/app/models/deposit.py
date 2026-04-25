@@ -27,5 +27,6 @@ class Deposit(Base):
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     conditions_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     params: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tariff: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
