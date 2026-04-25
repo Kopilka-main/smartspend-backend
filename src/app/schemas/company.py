@@ -18,3 +18,7 @@ class UserCompanyResponse(CamelModel):
     id: int
     company_id: str
     created_at: datetime
+
+
+class BatchCompaniesRequest(CamelModel):
+    company_ids: list[str]

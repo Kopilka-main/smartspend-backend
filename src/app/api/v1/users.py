@@ -101,3 +101,21 @@ async def get_public_profile(user_id: uuid.UUID, session: Session, current_user:
     viewer_id = current_user.id if current_user else None
     profile = await service.get_public_profile(user_id, viewer_id)
     return ApiResponse(data=profile)
+
+
+@router.get("/users/{user_id}/articles", response_model=ApiResponse[list])
+async def get_user_articles(user_id: uuid.UUID, session: Session):
+    from src.app.services.article import ArticleService
+
+    service = ArticleService(session)
+    items, _total = await service.list_published(author_id=user_id)
+    return ApiResponse(data=items)
+
+
+@router.get("/users/{user_id}/sets", response_model=ApiResponse[list])
+async def get_user_sets(user_id: uuid.UUID, session: Session):
+    from src.app.services.catalog import CatalogService
+
+    service = CatalogService(session)
+    items, _total = await service.list_by_author(user_id)
+    return ApiResponse(data=items)

@@ -86,6 +86,8 @@ class UserPublicResponse(CamelModel):
     articles_count: int = 0
     sets_count: int = 0
     is_following: bool = False
+    is_deleted: bool = False
+    is_private: bool = False
 
 
 class ProfileSummary(CamelModel):

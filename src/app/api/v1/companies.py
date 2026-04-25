@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query
 
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.base import ApiResponse, PaginationMeta
-from src.app.schemas.company import CompanyResponse, UserCompanyResponse
+from src.app.schemas.company import BatchCompaniesRequest, CompanyResponse, UserCompanyResponse
 from src.app.services.company import CompanyService
 
 router = APIRouter(prefix="/companies", tags=["companies"])
@@ -39,6 +39,12 @@ async def list_user_companies(user: CurrentUser, session: Session):
 async def add_user_company(company_id: str, user: CurrentUser, session: Session):
     service = CompanyService(session)
     return ApiResponse(data=await service.add_user_company(user.id, company_id))
+
+
+@router.post("/user-companies/batch", response_model=ApiResponse[list[UserCompanyResponse]], status_code=201)
+async def batch_add_user_companies(body: BatchCompaniesRequest, user: CurrentUser, session: Session):
+    service = CompanyService(session)
+    return ApiResponse(data=await service.batch_add_user_companies(user.id, body.company_ids))
 
 
 @router.delete("/user-companies/{company_id}", response_model=ApiResponse[None])

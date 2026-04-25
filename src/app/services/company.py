@@ -79,6 +79,25 @@ class CompanyService:
         await self._session.commit()
         return UserCompanyResponse.model_validate(uc)
 
+    async def batch_add_user_companies(self, user_id: uuid.UUID, company_ids: list[str]) -> list[UserCompanyResponse]:
+        result = []
+        for cid in company_ids:
+            company = await self._session.get(Company, cid)
+            if company is None:
+                continue
+            existing = await self._session.execute(
+                select(UserCompany).where(UserCompany.user_id == user_id, UserCompany.company_id == cid)
+            )
+            if existing.scalar_one_or_none():
+                continue
+            uc = UserCompany(user_id=user_id, company_id=cid)
+            self._session.add(uc)
+            await self._session.flush()
+            await self._session.refresh(uc)
+            result.append(UserCompanyResponse.model_validate(uc))
+        await self._session.commit()
+        return result
+
     async def remove_user_company(self, user_id: uuid.UUID, company_id: str) -> None:
         result = await self._session.execute(
             sa_delete(UserCompany).where(UserCompany.user_id == user_id, UserCompany.company_id == company_id)

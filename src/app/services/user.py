@@ -145,13 +145,21 @@ class UserService:
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+        is_ghost = user.deleted_at is not None
+        is_self = viewer_id == target_id if viewer_id else False
+
         follow_repo = FollowRepository(self._session)
+        is_following = False
+        if viewer_id and not is_self:
+            is_following = await follow_repo.exists(viewer_id, target_id)
+
+        privacy = getattr(user, "privacy_profile", "all")
+        is_private = False
+        if not is_self and not is_ghost and (privacy == "me" or (privacy == "followers" and not is_following)):
+            is_private = True
+
         followers_count = await follow_repo.count_followers(target_id)
         following_count = await follow_repo.count_following(target_id)
-
-        is_following = False
-        if viewer_id:
-            is_following = await follow_repo.exists(viewer_id, target_id)
 
         article_repo = ArticleRepository(self._session)
         articles_count = await article_repo.count_by_author(target_id)
@@ -159,7 +167,18 @@ class UserService:
         catalog_repo = CatalogRepository(self._session)
         _, sets_count = await catalog_repo.list_by_author(target_id, limit=0, offset=0)
 
-        is_ghost = user.deleted_at is not None
+        if is_private:
+            return UserPublicResponse(
+                id=user.id,
+                display_name=user.display_name,
+                username=user.username,
+                initials=user.initials,
+                color=user.color,
+                joined_at=user.joined_at,
+                followers_count=followers_count,
+                is_following=is_following,
+                is_private=True,
+            )
 
         return UserPublicResponse(
             id=user.id,
@@ -175,4 +194,5 @@ class UserService:
             articles_count=articles_count,
             sets_count=sets_count,
             is_following=is_following,
+            is_deleted=is_ghost,
         )
