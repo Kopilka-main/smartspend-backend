@@ -89,7 +89,7 @@ class DepositService:
         search: str | None = None,
         freq: str | None = None,
         conditions: str | None = None,
-        replenishment: bool | None = None,
+        liquidity: list[str] | None = None,
         sort: str = "bank",
         amount: float | None = None,
         months: int | None = None,
@@ -102,8 +102,11 @@ class DepositService:
             query = query.where(Deposit.bank_name.ilike(f"%{search}%"))
         if freq:
             query = query.where(Deposit.freq == freq)
-        if replenishment is not None:
-            query = query.where(Deposit.replenishment.is_(replenishment))
+        if liquidity:
+            if "replenishment" in liquidity and "no_replenishment" not in liquidity:
+                query = query.where(Deposit.replenishment.is_(True))
+            elif "no_replenishment" in liquidity and "replenishment" not in liquidity:
+                query = query.where(Deposit.replenishment.is_(False))
         if conditions:
             query = query.where(Deposit.conditions.any(conditions))
 
@@ -222,7 +225,7 @@ class DepositService:
         bank_names: list[str] | None = None,
         freq: str | None = None,
         conditions: str | None = None,
-        replenishment: bool | None = None,
+        liquidity: list[str] | None = None,
     ) -> list[DepositChartPoint]:
         query = select(Deposit).where(Deposit.is_active.is_(True))
         if bank_names:
@@ -231,8 +234,11 @@ class DepositService:
             query = query.where(Deposit.freq == freq)
         if conditions:
             query = query.where(Deposit.conditions.any(conditions))
-        if replenishment is not None:
-            query = query.where(Deposit.replenishment.is_(replenishment))
+        if liquidity:
+            if "replenishment" in liquidity and "no_replenishment" not in liquidity:
+                query = query.where(Deposit.replenishment.is_(True))
+            elif "no_replenishment" in liquidity and "replenishment" not in liquidity:
+                query = query.where(Deposit.replenishment.is_(False))
 
         result = await self._session.execute(query)
         deposits = result.scalars().all()

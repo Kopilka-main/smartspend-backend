@@ -151,6 +151,8 @@ class PromoService:
         if scope == "mine" and user_id:
             sub = select(UserCompany.company_id).where(UserCompany.user_id == user_id)
             query = query.where(Promo.company_id.in_(sub))
+        elif scope == "authored" and user_id:
+            query = query.where(Promo.author_id == user_id)
 
         if category_ids:
             query = query.where(Promo.category_id.in_(category_ids))

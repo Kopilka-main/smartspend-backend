@@ -22,7 +22,7 @@ async def list_deposits(
     search: str | None = Query(None, alias="q"),
     freq: str | None = Query(None),
     conditions: str | None = Query(None),
-    replenishment: bool | None = Query(None),
+    liquidity: str | None = Query(None),
     sort: str = Query("bank"),
     amount: float | None = Query(None, ge=0),
     months: int | None = Query(None, ge=1),
@@ -30,11 +30,12 @@ async def list_deposits(
     offset: int = Query(0, ge=0),
 ):
     service = DepositService(session)
+    liq_list = [v.strip() for v in liquidity.split(",") if v.strip()] if liquidity else None
     items, total = await service.list_deposits(
         search=search,
         freq=freq,
         conditions=conditions,
-        replenishment=replenishment,
+        liquidity=liq_list,
         sort=sort,
         amount=amount,
         months=months,
@@ -53,11 +54,12 @@ async def deposit_chart(
     banks: str | None = Query(None),
     freq: str | None = Query(None),
     conditions: str | None = Query(None),
-    replenishment: bool | None = Query(None),
+    liquidity: str | None = Query(None),
 ):
     bank_list = [b.strip() for b in banks.split(",") if b.strip()] if banks else None
+    liq_list = [v.strip() for v in liquidity.split(",") if v.strip()] if liquidity else None
     service = DepositService(session)
-    return ApiResponse(data=await service.chart(bank_list, freq, conditions, replenishment))
+    return ApiResponse(data=await service.chart(bank_list, freq, conditions, liq_list))
 
 
 @router.get("/banks", response_model=ApiResponse[list[str]])
