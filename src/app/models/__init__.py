@@ -25,6 +25,7 @@ from src.app.models.follow import Follow
 from src.app.models.inventory_group import InventoryGroup, InventoryGroupCategory
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
 from src.app.models.notification import Notification
+from src.app.models.notification_message import NotificationMessage
 from src.app.models.promo import Promo, PromoComment, PromoVote
 from src.app.models.reaction import Reaction
 from src.app.models.saved_set import SavedSet
@@ -59,6 +60,7 @@ __all__ = [
     "InventoryPurchase",
     "NotifType",
     "Notification",
+    "NotificationMessage",
     "Promo",
     "PromoComment",
     "PromoVote",

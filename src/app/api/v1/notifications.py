@@ -2,7 +2,11 @@ from fastapi import APIRouter, Query
 
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.base import ApiResponse, PaginationMeta
-from src.app.schemas.notification import NotificationResponse
+from src.app.schemas.notification import (
+    NotificationMessageCreate,
+    NotificationMessageResponse,
+    NotificationResponse,
+)
 from src.app.services.notification import NotificationService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -55,4 +59,30 @@ async def approve_request(notification_id: int, user: CurrentUser, session: Sess
 async def reject_request(notification_id: int, user: CurrentUser, session: Session):
     service = NotificationService(session)
     await service.set_action(notification_id, user.id, "rejected")
+    return ApiResponse(data=None)
+
+
+@router.post(
+    "/{notification_id}/messages",
+    response_model=ApiResponse[NotificationMessageResponse],
+    status_code=201,
+)
+async def add_message(notification_id: int, body: NotificationMessageCreate, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    return ApiResponse(data=await service.add_message(notification_id, user.id, body.text))
+
+
+@router.get(
+    "/{notification_id}/messages",
+    response_model=ApiResponse[list[NotificationMessageResponse]],
+)
+async def list_messages(notification_id: int, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    return ApiResponse(data=await service.list_messages(notification_id, user.id))
+
+
+@router.post("/{notification_id}/withdraw", response_model=ApiResponse[None])
+async def withdraw_request(notification_id: int, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    await service.withdraw(notification_id, user.id)
     return ApiResponse(data=None)

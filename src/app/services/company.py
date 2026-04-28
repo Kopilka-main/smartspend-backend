@@ -79,16 +79,15 @@ class CompanyService:
         await self._session.commit()
         return UserCompanyResponse.model_validate(uc)
 
-    async def batch_add_user_companies(self, user_id: uuid.UUID, company_ids: list[str]) -> list[UserCompanyResponse]:
+    async def sync_user_companies(self, user_id: uuid.UUID, company_ids: list[str]) -> list[UserCompanyResponse]:
+        await self._session.execute(sa_delete(UserCompany).where(UserCompany.user_id == user_id))
+
+        existing_q = await self._session.execute(select(Company.id).where(Company.id.in_(company_ids)))
+        valid_ids = {row[0] for row in existing_q.all()}
+
         result = []
         for cid in company_ids:
-            company = await self._session.get(Company, cid)
-            if company is None:
-                continue
-            existing = await self._session.execute(
-                select(UserCompany).where(UserCompany.user_id == user_id, UserCompany.company_id == cid)
-            )
-            if existing.scalar_one_or_none():
+            if cid not in valid_ids:
                 continue
             uc = UserCompany(user_id=user_id, company_id=cid)
             self._session.add(uc)

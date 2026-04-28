@@ -4,6 +4,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.notification import Notification
+from src.app.models.notification_message import NotificationMessage
 
 
 class NotificationRepository:
@@ -27,6 +28,9 @@ class NotificationRepository:
         base = base.order_by(Notification.created_at.desc()).limit(limit).offset(offset)
         result = await self._session.execute(base)
         return list(result.scalars().all()), total
+
+    async def get_by_id(self, notification_id: int) -> Notification | None:
+        return await self._session.get(Notification, notification_id)
 
     async def count_unread(self, user_id: uuid.UUID) -> int:
         stmt = select(func.count()).where(Notification.user_id == user_id, Notification.is_read.is_(False))
@@ -59,5 +63,28 @@ class NotificationRepository:
             update(Notification)
             .where(Notification.id == notification_id, Notification.user_id == user_id)
             .values(action_status=action_status, is_read=True)
+        )
+        await self._session.execute(stmt)
+
+    async def list_messages(self, notification_id: int) -> list[NotificationMessage]:
+        stmt = (
+            select(NotificationMessage)
+            .where(NotificationMessage.notification_id == notification_id)
+            .order_by(NotificationMessage.created_at.asc())
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def add_message(self, message: NotificationMessage) -> NotificationMessage:
+        self._session.add(message)
+        await self._session.flush()
+        await self._session.refresh(message)
+        return message
+
+    async def increment_messages_count(self, notification_id: int) -> None:
+        stmt = (
+            update(Notification)
+            .where(Notification.id == notification_id)
+            .values(messages_count=Notification.messages_count + 1)
         )
         await self._session.execute(stmt)

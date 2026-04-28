@@ -5,8 +5,10 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.models.inventory_group import InventoryGroup
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
 from src.app.models.user import User
 from src.app.repositories.inventory import InventoryRepository
@@ -26,11 +28,12 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
-def _item_to_response(item: InventoryItem) -> InventoryItemResponse:
+def _item_to_response(item: InventoryItem, group_names: dict[str, str]) -> InventoryItemResponse:
     return InventoryItemResponse(
         id=item.id,
         user_id=str(item.user_id),
         group_id=item.group_id,
+        group_name=group_names.get(item.group_id),
         type=item.type,
         name=item.name,
         price=item.price,
@@ -72,15 +75,21 @@ class InventoryService:
         self._session = session
         self._repo = InventoryRepository(session)
 
+    async def _get_group_names(self) -> dict[str, str]:
+        result = await self._session.execute(select(InventoryGroup.id, InventoryGroup.name))
+        return dict(result.all())
+
     async def list_items(self, user_id: uuid.UUID, group_id: str | None = None) -> list[InventoryItemResponse]:
         items = await self._repo.list_by_user(user_id, group_id)
-        return [_item_to_response(i) for i in items]
+        gn = await self._get_group_names()
+        return [_item_to_response(i, gn) for i in items]
 
     async def get_item(self, item_id: str, user_id: uuid.UUID) -> InventoryItemResponse:
         item = await self._repo.get_by_id(item_id)
         if item is None or item.user_id != user_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-        return _item_to_response(item)
+        gn = await self._get_group_names()
+        return _item_to_response(item, gn)
 
     async def create_item(self, user: User, data: InventoryItemCreate) -> InventoryItemResponse:
         item_id = f"inv_{int(time.time() * 1000)}"

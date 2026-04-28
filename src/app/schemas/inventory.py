@@ -24,6 +24,7 @@ class InventoryItemResponse(CamelModel):
     id: str
     user_id: str
     group_id: str
+    group_name: str | None = None
     type: str
     name: str
     price: int
