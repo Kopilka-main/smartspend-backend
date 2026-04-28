@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter
 
-from src.app.core.dependencies import CurrentUser, OptionalUser, Session
+from src.app.core.dependencies import CurrentUser, CurrentUserAllowPending, OptionalUser, Session
 from src.app.schemas.auth import UserResponse
 from src.app.schemas.base import ApiResponse
 from src.app.schemas.user import (
@@ -68,7 +68,7 @@ async def delete_account(body: DeleteAccountRequest, user: CurrentUser, session:
 
 
 @router.put("/me/cancel-deletion", response_model=ApiResponse[UserResponse])
-async def cancel_deletion(user: CurrentUser, session: Session):
+async def cancel_deletion(user: CurrentUserAllowPending, session: Session):
     service = UserService(session)
     updated = await service.cancel_deletion(user)
     return ApiResponse(data=updated)

@@ -41,6 +41,30 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_allow_pending(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    payload = decode_token(credentials.credentials)
+    if payload is None or payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload") from exc
+
+    repo = UserRepository(session)
+    user = await repo.get_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if user.status == UserStatus.SUSPENDED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+
+    return user
+
+
 async def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     session: AsyncSession = Depends(get_session),
@@ -60,4 +84,5 @@ async def get_optional_user(
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentUserAllowPending = Annotated[User, Depends(get_current_user_allow_pending)]
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
