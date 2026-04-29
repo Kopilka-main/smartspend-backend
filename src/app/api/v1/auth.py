@@ -15,6 +15,7 @@ from src.app.schemas.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     UserResponse,
+    VerifyEmailRequest,
 )
 from src.app.schemas.base import ApiResponse
 from src.app.services.auth import AuthService, _user_to_response
@@ -71,10 +72,21 @@ async def change_email(body: ChangeEmailRequest, user: CurrentUser, session: Ses
 
 
 @router.post("/forgot-password", response_model=ApiResponse[None])
-async def forgot_password(body: ForgotPasswordRequest):
+async def forgot_password(body: ForgotPasswordRequest, session: Session):
+    service = AuthService(session)
+    await service.forgot_password(body.email)
     return ApiResponse(data=None)
 
 
 @router.post("/reset-password", response_model=ApiResponse[None])
-async def reset_password(body: ResetPasswordRequest):
+async def reset_password(body: ResetPasswordRequest, session: Session):
+    service = AuthService(session)
+    await service.reset_password(body.token, body.password)
+    return ApiResponse(data=None)
+
+
+@router.post("/verify-email", response_model=ApiResponse[None])
+async def verify_email(body: VerifyEmailRequest, session: Session):
+    service = AuthService(session)
+    await service.verify_email(body.token)
     return ApiResponse(data=None)

@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime
 
@@ -7,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.core.security import (
     create_access_token,
+    create_email_token,
     create_refresh_token,
+    decode_email_token,
     decode_token,
     hash_password,
     verify_password,
@@ -26,6 +29,15 @@ from src.app.schemas.auth import (
     UserFinanceInline,
     UserResponse,
 )
+from src.app.services.email import send_reset_password_email, send_verification_email
+
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _fire_and_forget(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 def _build_initials(display_name: str) -> str:
@@ -78,11 +90,15 @@ class AuthService:
             password_hash=hash_password(data.password),
             display_name=data.display_name,
             initials=_build_initials(data.display_name),
+            status=UserStatus.UNVERIFIED,
         )
         finance = UserFinance(user_id=user.id)
 
         await self._repo.create(user, finance)
         await self._session.commit()
+
+        token = create_email_token(user.id, "verify-email")
+        _fire_and_forget(send_verification_email(user.email, token))
 
         tokens = self._issue_tokens(user.id)
         return _user_to_response(user), tokens
@@ -141,7 +157,43 @@ class AuthService:
         existing = await self._repo.get_by_email(new_email)
         if existing is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
-        await self._repo.update_fields(user.id, email=new_email)
+        await self._repo.update_fields(user.id, email=new_email, email_verified_at=None)
+        await self._session.commit()
+
+        token = create_email_token(user.id, "verify-email")
+        _fire_and_forget(send_verification_email(new_email, token))
+
+    async def verify_email(self, token: str) -> None:
+        user_id = decode_email_token(token, "verify-email")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        updates: dict = {"email_verified_at": datetime.now(UTC)}
+        if user.status == UserStatus.UNVERIFIED:
+            updates["status"] = UserStatus.VERIFIED
+        await self._repo.update_fields(user.id, **updates)
+        await self._session.commit()
+
+    async def forgot_password(self, email: str) -> None:
+        user = await self._repo.get_by_email(email)
+        if user is not None:
+            token = create_email_token(user.id, "reset-password")
+            _fire_and_forget(send_reset_password_email(user.email, token))
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        user_id = decode_email_token(token, "reset-password")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        await self._repo.update_fields(
+            user.id,
+            password_hash=hash_password(new_password),
+            password_changed_at=datetime.now(UTC),
+        )
         await self._session.commit()
 
     @staticmethod

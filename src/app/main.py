@@ -8,7 +8,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.sessions import SessionMiddleware
 
+from src.app.admin import setup_admin
 from src.app.api.v1.router import api_router
 from src.app.core.config import settings
 from src.app.core.database import get_session
@@ -35,6 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+
 
 @app.get("/health", tags=["health"], include_in_schema=False)
 async def health() -> dict[str, str]:
@@ -48,6 +52,8 @@ async def health_ready(session: AsyncSession = Depends(get_session)) -> dict[str
 
 
 app.include_router(api_router)
+
+setup_admin(app)
 
 
 @app.exception_handler(HTTPException)

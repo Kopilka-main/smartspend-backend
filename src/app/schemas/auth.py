@@ -81,3 +81,7 @@ class ChangePasswordRequest(CamelModel):
 class ChangeEmailRequest(CamelModel):
     new_email: EmailStr
     password: str = Field(min_length=1)
+
+
+class VerifyEmailRequest(CamelModel):
+    token: str

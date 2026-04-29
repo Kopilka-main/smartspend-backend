@@ -8,6 +8,13 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
     refresh_token_expire_days: int = 7
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000", "https://smartspend.i20h.ru"]
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    frontend_url: str = "http://localhost:3000"
+    admin_password: str = "admin"
 
     @field_validator("secret_key")
     @classmethod

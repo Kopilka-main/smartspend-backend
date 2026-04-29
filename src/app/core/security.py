@@ -43,3 +43,22 @@ def decode_token(token: str) -> dict | None:
         return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
     except JWTError:
         return None
+
+
+def create_email_token(user_id: uuid.UUID, purpose: str) -> str:
+    expire = datetime.now(UTC) + timedelta(hours=24)
+    payload = {"sub": str(user_id), "purpose": purpose, "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+
+
+def decode_email_token(token: str, expected_purpose: str) -> uuid.UUID | None:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("purpose") != expected_purpose:
+        return None
+    try:
+        return uuid.UUID(payload["sub"])
+    except (KeyError, ValueError):
+        return None
