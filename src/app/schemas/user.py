@@ -66,6 +66,7 @@ class AuthorInfo(CamelModel):
     username: str | None = None
     initials: str
     color: str
+    bio: str | None = None
     avatar_url: str | None = None
     followers_count: int = 0
     articles_count: int = 0

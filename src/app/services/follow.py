@@ -74,6 +74,7 @@ class FollowService:
                         username=u.username,
                         initials=u.initials,
                         color=u.color,
+                        bio=u.bio,
                         avatar_url=u.avatar_url,
                     )
                 )
@@ -97,6 +98,7 @@ class FollowService:
                         username=u.username,
                         initials=u.initials,
                         color=u.color,
+                        bio=u.bio,
                         avatar_url=u.avatar_url,
                     )
                 )
