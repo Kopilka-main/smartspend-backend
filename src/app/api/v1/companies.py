@@ -29,7 +29,7 @@ async def list_companies(
     )
 
 
-@router.get("/user-companies", response_model=ApiResponse[list[UserCompanyResponse]])
+@router.get("/user-companies", response_model=ApiResponse[list[CompanyResponse]])
 async def list_user_companies(user: CurrentUser, session: Session):
     service = CompanyService(session)
     return ApiResponse(data=await service.list_user_companies(user.id))

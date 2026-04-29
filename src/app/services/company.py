@@ -55,22 +55,16 @@ class CompanyService:
 
         return [self._to_response(c, cats) for c in companies], total
 
-    async def list_user_companies(self, user_id: uuid.UUID) -> list[UserCompanyResponse]:
+    async def list_user_companies(self, user_id: uuid.UUID) -> list[CompanyResponse]:
         result = await self._session.execute(
-            select(UserCompany, Company.category_id)
-            .join(Company, UserCompany.company_id == Company.id)
+            select(Company)
+            .join(UserCompany, UserCompany.company_id == Company.id)
             .where(UserCompany.user_id == user_id)
-            .order_by(UserCompany.created_at.desc())
+            .order_by(Company.name)
         )
-        return [
-            UserCompanyResponse(
-                id=row[0].id,
-                company_id=row[0].company_id,
-                category_id=row[1],
-                created_at=row[0].created_at,
-            )
-            for row in result.all()
-        ]
+        companies = result.scalars().all()
+        cats = await self._get_cat_names()
+        return [self._to_response(c, cats) for c in companies]
 
     async def add_user_company(self, user_id: uuid.UUID, company_id: str) -> UserCompanyResponse:
         company = await self._session.get(Company, company_id)
