@@ -48,6 +48,7 @@ def setup_admin(app):
     admin = Admin(
         engine,
         title="SmartSpend Admin",
+        base_url="/api/admin",
         auth_provider=SmartSpendAuth(login_path="/login", logout_path="/logout"),
     )
 
