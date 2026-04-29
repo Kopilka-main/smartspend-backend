@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from src.app.admin import setup_admin
 from src.app.api.v1.router import api_router
@@ -38,6 +39,7 @@ app.add_middleware(
 )
 
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 
 @app.get("/health", tags=["health"], include_in_schema=False)
