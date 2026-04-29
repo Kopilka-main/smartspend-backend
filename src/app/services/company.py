@@ -57,9 +57,20 @@ class CompanyService:
 
     async def list_user_companies(self, user_id: uuid.UUID) -> list[UserCompanyResponse]:
         result = await self._session.execute(
-            select(UserCompany).where(UserCompany.user_id == user_id).order_by(UserCompany.created_at.desc())
+            select(UserCompany, Company.category_id)
+            .join(Company, UserCompany.company_id == Company.id)
+            .where(UserCompany.user_id == user_id)
+            .order_by(UserCompany.created_at.desc())
         )
-        return [UserCompanyResponse.model_validate(uc) for uc in result.scalars().all()]
+        return [
+            UserCompanyResponse(
+                id=row[0].id,
+                company_id=row[0].company_id,
+                category_id=row[1],
+                created_at=row[0].created_at,
+            )
+            for row in result.all()
+        ]
 
     async def add_user_company(self, user_id: uuid.UUID, company_id: str) -> UserCompanyResponse:
         company = await self._session.get(Company, company_id)

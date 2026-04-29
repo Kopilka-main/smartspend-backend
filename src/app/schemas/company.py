@@ -17,6 +17,7 @@ class CompanyResponse(CamelModel):
 class UserCompanyResponse(CamelModel):
     id: int
     company_id: str
+    category_id: str | None = None
     created_at: datetime
 
 
