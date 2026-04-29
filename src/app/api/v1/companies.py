@@ -35,16 +35,16 @@ async def list_user_companies(user: CurrentUser, session: Session):
     return ApiResponse(data=await service.list_user_companies(user.id))
 
 
-@router.post("/user-companies/{company_id}", response_model=ApiResponse[UserCompanyResponse], status_code=201)
-async def add_user_company(company_id: str, user: CurrentUser, session: Session):
-    service = CompanyService(session)
-    return ApiResponse(data=await service.add_user_company(user.id, company_id))
-
-
 @router.post("/user-companies/batch", response_model=ApiResponse[list[UserCompanyResponse]], status_code=201)
 async def sync_user_companies(body: BatchCompaniesRequest, user: CurrentUser, session: Session):
     service = CompanyService(session)
     return ApiResponse(data=await service.sync_user_companies(user.id, body.company_ids))
+
+
+@router.post("/user-companies/{company_id}", response_model=ApiResponse[UserCompanyResponse], status_code=201)
+async def add_user_company(company_id: str, user: CurrentUser, session: Session):
+    service = CompanyService(session)
+    return ApiResponse(data=await service.add_user_company(user.id, company_id))
 
 
 @router.delete("/user-companies/{company_id}", response_model=ApiResponse[None])
