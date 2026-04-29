@@ -55,3 +55,49 @@ class FollowService:
             )
         await self._repo.remove(follower_id, following_id)
         await self._session.commit()
+
+    async def list_following(self, user_id: uuid.UUID) -> list:
+        from src.app.schemas.user import AuthorInfo
+
+        ids = await self._repo.list_following(user_id)
+        if not ids:
+            return []
+        user_repo = UserRepository(self._session)
+        result = []
+        for uid in ids:
+            u = await user_repo.get_by_id(uid)
+            if u:
+                result.append(
+                    AuthorInfo(
+                        id=u.id,
+                        display_name=u.display_name,
+                        username=u.username,
+                        initials=u.initials,
+                        color=u.color,
+                        avatar_url=u.avatar_url,
+                    )
+                )
+        return result
+
+    async def list_followers(self, user_id: uuid.UUID) -> list:
+        from src.app.schemas.user import AuthorInfo
+
+        ids = await self._repo.list_followers(user_id)
+        if not ids:
+            return []
+        user_repo = UserRepository(self._session)
+        result = []
+        for uid in ids:
+            u = await user_repo.get_by_id(uid)
+            if u:
+                result.append(
+                    AuthorInfo(
+                        id=u.id,
+                        display_name=u.display_name,
+                        username=u.username,
+                        initials=u.initials,
+                        color=u.color,
+                        avatar_url=u.avatar_url,
+                    )
+                )
+        return result

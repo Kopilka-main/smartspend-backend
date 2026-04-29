@@ -31,3 +31,13 @@ class FollowRepository:
     async def count_following(self, user_id: uuid.UUID) -> int:
         stmt = select(func.count()).where(Follow.follower_id == user_id)
         return (await self._session.execute(stmt)).scalar_one()
+
+    async def list_following(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        stmt = select(Follow.following_id).where(Follow.follower_id == user_id).order_by(Follow.created_at.desc())
+        result = await self._session.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    async def list_followers(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        stmt = select(Follow.follower_id).where(Follow.following_id == user_id).order_by(Follow.created_at.desc())
+        result = await self._session.execute(stmt)
+        return [row[0] for row in result.all()]

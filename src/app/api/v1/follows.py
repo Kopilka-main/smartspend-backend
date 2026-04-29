@@ -4,9 +4,22 @@ from fastapi import APIRouter
 
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.schemas.base import ApiResponse
+from src.app.schemas.user import AuthorInfo
 from src.app.services.follow import FollowService
 
 router = APIRouter(prefix="/users", tags=["follows"])
+
+
+@router.get("/me/following", response_model=ApiResponse[list[AuthorInfo]])
+async def list_following(current_user: CurrentUser, session: Session):
+    service = FollowService(session)
+    return ApiResponse(data=await service.list_following(current_user.id))
+
+
+@router.get("/me/followers", response_model=ApiResponse[list[AuthorInfo]])
+async def list_followers(current_user: CurrentUser, session: Session):
+    service = FollowService(session)
+    return ApiResponse(data=await service.list_followers(current_user.id))
 
 
 @router.post("/{user_id}/follow", response_model=ApiResponse[None], status_code=201)
