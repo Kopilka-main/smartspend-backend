@@ -1,6 +1,5 @@
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette_admin import action
 from starlette_admin.auth import AdminUser, AuthProvider
 from starlette_admin.contrib.sqla import Admin, ModelView
 
@@ -19,7 +18,12 @@ from src.app.models.user_finance import UserFinance
 
 class SmartSpendAuth(AuthProvider):
     async def login(
-        self, username: str, password: str, remember_me: bool, request: Request, response: Response
+        self,
+        username: str,
+        password: str,
+        remember_me: bool,
+        request: Request,
+        response: Response,
     ) -> Response:
         if username == "admin" and password == settings.admin_password:
             request.session.update({"username": username})
@@ -40,149 +44,153 @@ class SmartSpendAuth(AuthProvider):
         return response
 
 
-class UserAdmin(ModelView):
-    model = User
-    name = "Пользователи"
-    icon = "fa fa-users"
-    fields = [
-        User.id,
-        User.email,
-        User.display_name,
-        User.username,
-        User.initials,
-        User.color,
-        User.status,
-        User.theme,
-        User.bio,
-        User.joined_at,
-        User.deleted_at,
-    ]
-    column_list = [User.id, User.email, User.display_name, User.username, User.status, User.joined_at]
-    column_searchable_list = [User.email, User.display_name, User.username]
-    column_sortable_list = [User.email, User.display_name, User.joined_at, User.status]
-    page_size = 25
-
-    @action(name="suspend", text="Заблокировать", confirmation="Заблокировать выбранных?")
-    async def suspend_action(self, request: Request, pks: list) -> str:
-        session = request.state.session
-        for pk in pks:
-            user = await session.get(User, pk)
-            if user:
-                user.status = "suspended"
-        await session.commit()
-        return f"Заблокировано: {len(pks)}"
-
-    @action(name="unsuspend", text="Разблокировать", confirmation="Разблокировать выбранных?")
-    async def unsuspend_action(self, request: Request, pks: list) -> str:
-        session = request.state.session
-        for pk in pks:
-            user = await session.get(User, pk)
-            if user:
-                user.status = "unverified"
-        await session.commit()
-        return f"Разблокировано: {len(pks)}"
-
-
-class UserFinanceAdmin(ModelView):
-    model = UserFinance
-    name = "Финансы"
-    icon = "fa fa-money"
-    column_list = [UserFinance.user_id, UserFinance.income, UserFinance.housing, UserFinance.capital]
-    page_size = 25
-
-
-class SetAdmin(ModelView):
-    model = Set
-    name = "Наборы"
-    icon = "fa fa-th-large"
-    column_list = [Set.id, Set.title, Set.source, Set.category_id, Set.users_count, Set.is_private, Set.created_at]
-    column_searchable_list = [Set.title, Set.description]
-    column_sortable_list = [Set.title, Set.created_at, Set.users_count]
-    page_size = 25
-
-
-class ArticleAdmin(ModelView):
-    model = Article
-    name = "Статьи"
-    icon = "fa fa-file-text"
-    column_list = [
-        Article.id,
-        Article.title,
-        Article.status,
-        Article.is_private,
-        Article.views_count,
-        Article.created_at,
-    ]
-    column_searchable_list = [Article.title]
-    column_sortable_list = [Article.title, Article.created_at, Article.views_count]
-    page_size = 25
-
-
-class DepositAdmin(ModelView):
-    model = Deposit
-    name = "Вклады"
-    icon = "fa fa-bank"
-    column_list = [Deposit.id, Deposit.bank_name, Deposit.name, Deposit.freq, Deposit.is_active]
-    column_searchable_list = [Deposit.bank_name, Deposit.name]
-    page_size = 25
-
-
-class CardAdmin(ModelView):
-    model = Card
-    name = "Карты"
-    icon = "fa fa-credit-card"
-    column_list = [Card.id, Card.bank_name, Card.name, Card.card_type, Card.is_active]
-    column_searchable_list = [Card.bank_name, Card.name]
-    page_size = 25
-
-
-class CompanyAdmin(ModelView):
-    model = Company
-    name = "Компании"
-    icon = "fa fa-building"
-    column_list = [Company.id, Company.name, Company.category_id, Company.is_active]
-    column_searchable_list = [Company.name]
-    page_size = 25
-
-
-class PromoAdmin(ModelView):
-    model = Promo
-    name = "Промо"
-    icon = "fa fa-tag"
-    column_list = [
-        Promo.id,
-        Promo.type,
-        Promo.title,
-        Promo.company_id,
-        Promo.votes_up,
-        Promo.votes_down,
-        Promo.is_active,
-    ]
-    column_searchable_list = [Promo.title, Promo.text]
-    page_size = 25
-
-
-class NotificationAdmin(ModelView):
-    model = Notification
-    name = "Уведомления"
-    icon = "fa fa-bell"
-    column_list = [Notification.id, Notification.user_id, Notification.type, Notification.title, Notification.is_read]
-    page_size = 25
-
-
 def setup_admin(app):
     admin = Admin(
         engine,
         title="SmartSpend Admin",
         auth_provider=SmartSpendAuth(login_path="/login", logout_path="/logout"),
     )
-    admin.add_view(UserAdmin)
-    admin.add_view(UserFinanceAdmin)
-    admin.add_view(SetAdmin)
-    admin.add_view(ArticleAdmin)
-    admin.add_view(DepositAdmin)
-    admin.add_view(CardAdmin)
-    admin.add_view(CompanyAdmin)
-    admin.add_view(PromoAdmin)
-    admin.add_view(NotificationAdmin)
+
+    admin.add_view(
+        ModelView(
+            User,
+            icon="fa fa-users",
+            label="Пользователи",
+            fields=[
+                User.id,
+                User.email,
+                User.display_name,
+                User.username,
+                User.initials,
+                User.color,
+                User.status,
+                User.theme,
+                User.bio,
+                User.joined_at,
+                User.deleted_at,
+            ],
+            column_list=[User.id, User.email, User.display_name, User.username, User.status, User.joined_at],
+            searchable_fields=[User.email, User.display_name, User.username],
+            sortable_fields=[User.email, User.display_name, User.joined_at, User.status],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            UserFinance,
+            icon="fa fa-money",
+            label="Финансы",
+            column_list=[UserFinance.user_id, UserFinance.income, UserFinance.housing, UserFinance.capital],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Set,
+            icon="fa fa-th-large",
+            label="Наборы",
+            column_list=[
+                Set.id,
+                Set.title,
+                Set.source,
+                Set.category_id,
+                Set.users_count,
+                Set.is_private,
+                Set.created_at,
+            ],
+            searchable_fields=[Set.title],
+            sortable_fields=[Set.title, Set.created_at, Set.users_count],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Article,
+            icon="fa fa-file-text",
+            label="Статьи",
+            column_list=[
+                Article.id,
+                Article.title,
+                Article.status,
+                Article.is_private,
+                Article.views_count,
+                Article.created_at,
+            ],
+            searchable_fields=[Article.title],
+            sortable_fields=[Article.title, Article.created_at, Article.views_count],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Deposit,
+            icon="fa fa-bank",
+            label="Вклады",
+            column_list=[Deposit.id, Deposit.bank_name, Deposit.name, Deposit.freq, Deposit.is_active],
+            searchable_fields=[Deposit.bank_name, Deposit.name],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Card,
+            icon="fa fa-credit-card",
+            label="Карты",
+            column_list=[Card.id, Card.bank_name, Card.name, Card.card_type, Card.is_active],
+            searchable_fields=[Card.bank_name, Card.name],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Company,
+            icon="fa fa-building",
+            label="Компании",
+            column_list=[Company.id, Company.name, Company.category_id, Company.is_active],
+            searchable_fields=[Company.name],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Promo,
+            icon="fa fa-tag",
+            label="Промо",
+            column_list=[
+                Promo.id,
+                Promo.type,
+                Promo.title,
+                Promo.company_id,
+                Promo.votes_up,
+                Promo.votes_down,
+                Promo.is_active,
+            ],
+            searchable_fields=[Promo.title, Promo.text],
+            page_size=25,
+        )
+    )
+
+    admin.add_view(
+        ModelView(
+            Notification,
+            icon="fa fa-bell",
+            label="Уведомления",
+            column_list=[
+                Notification.id,
+                Notification.user_id,
+                Notification.type,
+                Notification.title,
+                Notification.is_read,
+            ],
+            page_size=25,
+        )
+    )
+
     admin.mount_to(app)
