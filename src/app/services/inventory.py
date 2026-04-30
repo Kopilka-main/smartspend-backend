@@ -124,6 +124,10 @@ def _item_to_response(
         if daily_use > 0 and price > 0 and qty > 0:
             monthly_cost = math.ceil(float(daily_use * DAYS_PER_MONTH * Decimal(price) / qty))
 
+    monthly_need: Decimal | None = None
+    if item.type == "consumable" and daily_use > 0:
+        monthly_need = round(daily_use * DAYS_PER_MONTH, 2)
+
     elif item.type == "wear":
         wear_weeks = item.wear_life_weeks
         if wear_weeks is None and wear_life is not None and wear_life_unit is not None:
@@ -131,6 +135,19 @@ def _item_to_response(
         if wear_weeks and wear_weeks > 0 and price > 0:
             wear_days = Decimal(wear_weeks * 7)
             monthly_cost = math.ceil(float(Decimal(price) / wear_days * DAYS_PER_MONTH))
+
+    residual_percent: int | None = None
+    residual_value: int | None = None
+    if item.type == "wear" and item.purchase_date is not None:
+        wear_weeks = item.wear_life_weeks
+        if wear_weeks is None and wear_life is not None and wear_life_unit is not None:
+            wear_weeks = _wear_life_to_weeks(wear_life, wear_life_unit)
+        if wear_weeks and wear_weeks > 0 and price > 0:
+            total_days = wear_weeks * 7
+            used_days = (date.today() - item.purchase_date).days
+            pct = max(0, min(100, int((1 - used_days / total_days) * 100)))
+            residual_percent = pct
+            residual_value = int(price * pct / 100)
 
     if qty > 0:
         price_per_unit = Decimal(price) / qty
@@ -170,7 +187,10 @@ def _item_to_response(
         remaining_percent=remaining_percent,
         remaining_days=remaining_days,
         monthly_cost=monthly_cost,
+        monthly_need=monthly_need,
         price_per_unit=price_per_unit,
+        residual_percent=residual_percent,
+        residual_value=residual_value,
         purchases=[
             InventoryPurchaseResponse(
                 id=p.id,
