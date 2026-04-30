@@ -29,6 +29,7 @@ class InventoryItemResponse(CamelModel):
     name: str
     price: int
     set_id: str | None = None
+    set_name: str | None = None
     is_extra: bool
     paused: bool
     notes: str | None = None
@@ -37,7 +38,17 @@ class InventoryItemResponse(CamelModel):
     daily_use: Decimal | None = None
     last_bought: date | None = None
     wear_life_weeks: int | None = None
+    wear_life: int | None = None
+    wear_life_unit: str | None = None
+    use_rate: Decimal | None = None
+    use_period: str | None = None
     purchase_date: date | None = None
+    status: str = "ok"
+    remaining_qty: Decimal | None = None
+    remaining_percent: int | None = None
+    remaining_days: int | None = None
+    monthly_cost: int = 0
+    price_per_unit: Decimal | None = None
     purchases: list[InventoryPurchaseResponse] = []
     photos: list[InventoryPhotoResponse] = []
     created_at: datetime
@@ -51,11 +62,15 @@ class InventoryItemCreate(CamelModel):
     price: int = Field(ge=0)
     set_id: str | None = None
     notes: str | None = None
-    qty: Decimal | None = Field(None, gt=0)
+    qty: Decimal | None = Field(None, ge=0)
     unit: str | None = Field(None, max_length=20)
     daily_use: Decimal | None = Field(None, gt=0)
     last_bought: date | None = None
     wear_life_weeks: int | None = Field(None, gt=0)
+    wear_life: int | None = Field(None, gt=0)
+    wear_life_unit: str | None = Field(None, max_length=10)
+    use_rate: Decimal | None = Field(None, gt=0)
+    use_period: str | None = Field(None, max_length=10)
     purchase_date: date | None = None
 
 
@@ -63,11 +78,15 @@ class InventoryItemUpdate(CamelModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     price: int | None = Field(None, ge=0)
     notes: str | None = None
-    qty: Decimal | None = Field(None, gt=0)
+    qty: Decimal | None = Field(None, ge=0)
     unit: str | None = Field(None, max_length=20)
     daily_use: Decimal | None = Field(None, gt=0)
     last_bought: date | None = None
     wear_life_weeks: int | None = Field(None, gt=0)
+    wear_life: int | None = Field(None, gt=0)
+    wear_life_unit: str | None = Field(None, max_length=10)
+    use_rate: Decimal | None = Field(None, gt=0)
+    use_period: str | None = Field(None, max_length=10)
     purchase_date: date | None = None
     paused: bool | None = None
 

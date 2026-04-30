@@ -52,6 +52,10 @@ class InventoryItem(Base):
     daily_use: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
     last_bought: Mapped[date | None] = mapped_column(Date, nullable=True)
     wear_life_weeks: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    wear_life: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    wear_life_unit: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    use_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
+    use_period: Mapped[str | None] = mapped_column(String(10), nullable=True)
     purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
