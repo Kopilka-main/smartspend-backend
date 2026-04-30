@@ -331,14 +331,15 @@ class InventoryService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Item is not frozen/paused")
 
         updates: dict = {"paused": False}
+        act_date = data.purchase_date or date.today()
         if item.type == "consumable":
-            updates["last_bought"] = data.purchase_date
+            updates["last_bought"] = act_date
             if data.qty is not None:
                 updates["qty"] = data.qty
             if data.price is not None:
                 updates["price"] = data.price
         elif item.type == "wear":
-            updates["purchase_date"] = data.purchase_date
+            updates["purchase_date"] = act_date
             if data.price is not None:
                 updates["price"] = data.price
 

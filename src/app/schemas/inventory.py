@@ -95,7 +95,7 @@ class InventoryItemUpdate(CamelModel):
 
 
 class ActivateItemRequest(CamelModel):
-    purchase_date: date
+    purchase_date: date | None = None
     qty: Decimal | None = Field(None, gt=0)
     price: int | None = Field(None, ge=0)
 
