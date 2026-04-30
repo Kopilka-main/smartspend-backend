@@ -86,3 +86,17 @@ async def withdraw_request(notification_id: int, user: CurrentUser, session: Ses
     service = NotificationService(session)
     await service.withdraw(notification_id, user.id)
     return ApiResponse(data=None)
+
+
+@router.delete("/{notification_id}", response_model=ApiResponse[None])
+async def delete_notification(notification_id: int, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    await service.delete_notification(notification_id, user.id)
+    return ApiResponse(data=None)
+
+
+@router.post("/{notification_id}/restore", response_model=ApiResponse[None])
+async def restore_notification(notification_id: int, user: CurrentUser, session: Session):
+    service = NotificationService(session)
+    await service.restore_notification(notification_id, user.id)
+    return ApiResponse(data=None)

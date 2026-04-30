@@ -18,7 +18,7 @@ class NotificationRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[Notification], int]:
-        base = select(Notification).where(Notification.user_id == user_id)
+        base = select(Notification).where(Notification.user_id == user_id, Notification.is_deleted.is_(False))
         if notif_type and notif_type != "all":
             base = base.where(Notification.type == notif_type)
 
@@ -86,5 +86,21 @@ class NotificationRepository:
             update(Notification)
             .where(Notification.id == notification_id)
             .values(messages_count=Notification.messages_count + 1)
+        )
+        await self._session.execute(stmt)
+
+    async def soft_delete(self, notification_id: int, user_id: uuid.UUID) -> None:
+        stmt = (
+            update(Notification)
+            .where(Notification.id == notification_id, Notification.user_id == user_id)
+            .values(is_deleted=True)
+        )
+        await self._session.execute(stmt)
+
+    async def restore(self, notification_id: int, user_id: uuid.UUID) -> None:
+        stmt = (
+            update(Notification)
+            .where(Notification.id == notification_id, Notification.user_id == user_id)
+            .values(is_deleted=False)
         )
         await self._session.execute(stmt)

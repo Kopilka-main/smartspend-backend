@@ -136,3 +136,11 @@ class NotificationService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only requests can be withdrawn")
         await self._repo.set_action(notification_id, user_id, "withdrawn")
         await self._session.commit()
+
+    async def delete_notification(self, notification_id: int, user_id: uuid.UUID) -> None:
+        await self._repo.soft_delete(notification_id, user_id)
+        await self._session.commit()
+
+    async def restore_notification(self, notification_id: int, user_id: uuid.UUID) -> None:
+        await self._repo.restore(notification_id, user_id)
+        await self._session.commit()
