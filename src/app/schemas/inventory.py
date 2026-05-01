@@ -48,6 +48,7 @@ class InventoryItemResponse(CamelModel):
     remaining_percent: int | None = None
     remaining_days: int | None = None
     monthly_cost: int = 0
+    weekly_cost: int = 0
     monthly_need: Decimal | None = None
     price_per_unit: Decimal | None = None
     residual_percent: int | None = None

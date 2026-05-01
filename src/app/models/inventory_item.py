@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
-    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -24,16 +23,7 @@ from src.app.core.database import Base
 
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
-    __table_args__ = (
-        CheckConstraint(
-            "paused = true OR type <> 'consumable' OR (qty IS NOT NULL AND daily_use IS NOT NULL AND last_bought IS NOT NULL)",
-            name="chk_consumable",
-        ),
-        CheckConstraint(
-            "paused = true OR type <> 'wear' OR wear_life_weeks IS NOT NULL",
-            name="chk_wear",
-        ),
-    )
+    __table_args__: tuple = ()
 
     id: Mapped[str] = mapped_column(String(60), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
