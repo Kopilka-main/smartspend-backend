@@ -440,3 +440,38 @@ class InventoryService:
 
         await self._repo.delete_photo(photo_id)
         await self._session.commit()
+
+    async def shopping_list(self, user_id: uuid.UUID, period: str = "week"):
+        from src.app.schemas.inventory import ShoppingItem, ShoppingList
+
+        items = await self._repo.list_by_user(user_id)
+        gn = await self._get_group_names()
+        multiplier = Decimal("7") if period == "week" else DAYS_PER_MONTH
+
+        groups: dict[str, list[ShoppingItem]] = {}
+        total_cost = 0
+
+        for item in items:
+            if item.paused or item.type != "consumable":
+                continue
+            daily = item.daily_use or Decimal(0)
+            if daily <= 0:
+                continue
+            need = round(daily * multiplier, 1)
+            cost = 0
+            if item.qty and item.qty > 0 and item.price:
+                cost = math.ceil(float(Decimal(item.price) / item.qty * need))
+            total_cost += cost
+            gname = gn.get(item.group_id, item.group_id)
+            si = ShoppingItem(
+                item_id=item.id,
+                name=item.name,
+                group_id=item.group_id,
+                group_name=gname,
+                unit=item.unit,
+                need_qty=need,
+                need_cost=cost,
+            )
+            groups.setdefault(item.group_id, []).append(si)
+
+        return ShoppingList(period=period, total_cost=total_cost, groups=groups)

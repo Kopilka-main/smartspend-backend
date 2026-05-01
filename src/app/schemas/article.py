@@ -158,4 +158,4 @@ class ArticleCommentCreate(CamelModel):
 
 
 class ArticleSetLinkCreate(CamelModel):
-    set_id: str = Field(min_length=1, max_length=20)
+    set_id: str = Field(min_length=1)

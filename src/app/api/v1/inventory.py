@@ -11,10 +11,17 @@ from src.app.schemas.inventory import (
     ReassignSetRequest,
     ReplaceRequest,
     RestockRequest,
+    ShoppingList,
 )
 from src.app.services.inventory import InventoryService
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+@router.get("/shopping", response_model=ApiResponse[ShoppingList])
+async def shopping_list(user: CurrentUser, session: Session, period: str = Query("week")):
+    service = InventoryService(session)
+    return ApiResponse(data=await service.shopping_list(user.id, period))
 
 
 @router.get("/items", response_model=ApiResponse[list[InventoryItemResponse]])

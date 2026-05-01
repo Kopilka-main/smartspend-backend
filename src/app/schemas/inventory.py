@@ -60,7 +60,7 @@ class InventoryItemResponse(CamelModel):
 
 
 class InventoryItemCreate(CamelModel):
-    group_id: str = Field(max_length=5)
+    group_id: str
     type: str = Field(max_length=20)
     name: str = Field(min_length=1, max_length=200)
     price: int = Field(ge=0)
@@ -110,7 +110,7 @@ class ReplaceRequest(CamelModel):
 
 
 class ReassignSetRequest(CamelModel):
-    set_id: str = Field(min_length=1, max_length=20)
+    set_id: str = Field(min_length=1)
 
 
 class InventoryGroupResponse(CamelModel):
@@ -118,3 +118,19 @@ class InventoryGroupResponse(CamelModel):
     name: str
     color: str
     items: list[InventoryItemResponse] = []
+
+
+class ShoppingItem(CamelModel):
+    item_id: str
+    name: str
+    group_id: str
+    group_name: str | None = None
+    unit: str | None = None
+    need_qty: Decimal | None = None
+    need_cost: int = 0
+
+
+class ShoppingList(CamelModel):
+    period: str
+    total_cost: int = 0
+    groups: dict[str, list[ShoppingItem]] = {}
