@@ -149,10 +149,13 @@ def _item_to_response(
             residual_percent = pct
             residual_value = int(price * pct / 100)
             remaining_percent = pct
+            remaining_days = max(0, total_days - used_days)
         elif price > 0:
             residual_percent = 100
             residual_value = price
             remaining_percent = 100
+            if wear_wk:
+                remaining_days = wear_wk * 7
 
     if qty > 0:
         price_per_unit = Decimal(price) / qty
