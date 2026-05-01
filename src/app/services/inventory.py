@@ -148,9 +148,11 @@ def _item_to_response(
             pct = max(0, min(100, int((1 - used_days / total_days) * 100)))
             residual_percent = pct
             residual_value = int(price * pct / 100)
+            remaining_percent = pct
         elif price > 0:
             residual_percent = 100
             residual_value = price
+            remaining_percent = 100
 
     if qty > 0:
         price_per_unit = Decimal(price) / qty
