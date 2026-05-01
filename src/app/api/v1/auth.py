@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select as sa_select
 
+from src.app.core.config import settings
 from src.app.core.dependencies import CurrentUser, Session
 from src.app.models.company import UserCompany
 from src.app.repositories.follow import FollowRepository
@@ -19,6 +21,7 @@ from src.app.schemas.auth import (
 )
 from src.app.schemas.base import ApiResponse
 from src.app.services.auth import AuthService, _user_to_response
+from src.app.services.oauth import get_vk_auth_url, get_yandex_auth_url, handle_vk_callback, handle_yandex_callback
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -90,3 +93,33 @@ async def verify_email(body: VerifyEmailRequest, session: Session):
     service = AuthService(session)
     await service.verify_email(body.token)
     return ApiResponse(data=None)
+
+
+@router.get("/oauth/yandex")
+async def oauth_yandex():
+    return RedirectResponse(get_yandex_auth_url())
+
+
+@router.get("/oauth/vk")
+async def oauth_vk():
+    return RedirectResponse(get_vk_auth_url())
+
+
+@router.get("/callback/yandex")
+async def callback_yandex(session: Session, code: str = Query(...)):
+    _, tokens = await handle_yandex_callback(code, session)
+    return RedirectResponse(
+        f"{settings.frontend_url}/#/oauth-success?accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
+    )
+
+
+@router.get("/callback/vk")
+async def callback_vk(
+    session: Session,
+    code: str = Query(...),
+    device_id: str = Query(""),
+):
+    _, tokens = await handle_vk_callback(code, device_id, session)
+    return RedirectResponse(
+        f"{settings.frontend_url}/#/oauth-success?accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
+    )

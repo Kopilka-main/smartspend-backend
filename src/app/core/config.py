@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     frontend_url: str = "http://localhost:3000"
     admin_password: str = "admin"
+    yandex_client_id: str = ""
+    yandex_client_secret: str = ""
+    vk_app_id: str = ""
+    vk_secure_key: str = ""
+    vk_service_key: str = ""
 
     @field_validator("secret_key")
     @classmethod
