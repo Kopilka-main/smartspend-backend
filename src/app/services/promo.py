@@ -325,3 +325,12 @@ class PromoService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your comment")
         await self._session.execute(sa_delete(PromoComment).where(PromoComment.id == comment_id))
         await self._session.commit()
+
+    async def delete_promo(self, promo_id: int, user_id: uuid.UUID) -> None:
+        promo = await self._session.get(Promo, promo_id)
+        if promo is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Promo not found")
+        if promo.author_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your promo")
+        await self._session.execute(sa_delete(Promo).where(Promo.id == promo_id))
+        await self._session.commit()

@@ -96,3 +96,10 @@ async def delete_promo_comment(comment_id: int, user: CurrentUser, session: Sess
     service = PromoService(session)
     await service.delete_comment(comment_id, user.id)
     return ApiResponse(data=None)
+
+
+@router.delete("/{promo_id}", response_model=ApiResponse[None])
+async def delete_promo(promo_id: int, user: CurrentUser, session: Session):
+    service = PromoService(session)
+    await service.delete_promo(promo_id, user.id)
+    return ApiResponse(data=None)

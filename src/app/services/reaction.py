@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.article import Article
 from src.app.models.article_comment import ArticleComment
+from src.app.models.deposit_comment import DepositComment
 from src.app.models.enums import ReactionTarget
+from src.app.models.promo import PromoComment
 from src.app.models.set_comment import SetComment
 from src.app.repositories.reaction import ReactionRepository
 from src.app.schemas.reaction import ReactionCreate, ReactionResponse
@@ -100,3 +102,21 @@ class ReactionService:
                         .values(likes_count=likes, dislikes_count=dislikes)
                     )
                     await self._session.execute(stmt)
+                else:
+                    pc = await self._session.get(PromoComment, comment_id)
+                    if pc:
+                        stmt = (
+                            sa_update(PromoComment)
+                            .where(PromoComment.id == comment_id)
+                            .values(likes_count=likes, dislikes_count=dislikes)
+                        )
+                        await self._session.execute(stmt)
+                    else:
+                        dc = await self._session.get(DepositComment, comment_id)
+                        if dc:
+                            stmt = (
+                                sa_update(DepositComment)
+                                .where(DepositComment.id == comment_id)
+                                .values(likes_count=likes, dislikes_count=dislikes)
+                            )
+                            await self._session.execute(stmt)
