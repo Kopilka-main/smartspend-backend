@@ -124,6 +124,7 @@ class ArticleCreate(CamelModel):
     linked_set_id: str | None = None
     linked_set_ids: list[str] | None = None
     blocks: list[ArticleBlockCreate] = []
+    photo_ids: list[int] = []
 
 
 class ArticleUpdate(CamelModel):

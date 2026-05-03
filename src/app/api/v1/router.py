@@ -14,6 +14,7 @@ from src.app.api.v1.notifications import router as notifications_router
 from src.app.api.v1.promos import router as promos_router
 from src.app.api.v1.reactions import router as reactions_router
 from src.app.api.v1.reference import router as reference_router
+from src.app.api.v1.uploads import router as uploads_router
 from src.app.api.v1.users import router as users_router
 
 api_router = APIRouter(prefix="/api/v1")
@@ -33,3 +34,4 @@ api_router.include_router(deposits_router)
 api_router.include_router(cards_router)
 api_router.include_router(companies_router)
 api_router.include_router(promos_router)
+api_router.include_router(uploads_router)

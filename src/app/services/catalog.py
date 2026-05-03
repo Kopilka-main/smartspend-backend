@@ -30,6 +30,7 @@ from src.app.schemas.catalog import (
     SetUpdate,
 )
 from src.app.schemas.user import AuthorInfo
+from src.app.services.upload import UploadService
 
 
 def _compute_monthly(item) -> Decimal:
@@ -309,6 +310,13 @@ class CatalogService:
 
         stmt = sa_update(Set).where(Set.id == set_id).values(amount=total, amount_label="руб / месяц")
         await self._session.execute(stmt)
+
+        if data.photo_ids:
+            upload_svc = UploadService(self._session)
+            uploads = await upload_svc.link_uploads(data.photo_ids, user.id, "set", set_id)
+            for i, u in enumerate(uploads):
+                photo = SetPhoto(set_id=set_id, url=u.url, file_name=u.file_name, position=i)
+                self._session.add(photo)
 
         await self._session.commit()
         self._session.expire_all()

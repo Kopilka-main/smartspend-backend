@@ -118,6 +118,7 @@ class SetCreate(CamelModel):
     about_title: str | None = Field(None, max_length=200)
     about_text: str | None = None
     items: list[SetItemCreate] = []
+    photo_ids: list[int] = []
 
 
 class SetUpdate(CamelModel):

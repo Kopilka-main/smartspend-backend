@@ -35,6 +35,7 @@ from src.app.schemas.article import (
     SetLinkCard,
 )
 from src.app.schemas.user import AuthorInfo
+from src.app.services.upload import UploadService
 
 
 def _author_info(user) -> AuthorInfo | None:
@@ -305,6 +306,13 @@ class ArticleService:
                 for b in data.blocks
             ]
             await self._repo.add_blocks(blocks)
+
+        if data.photo_ids:
+            upload_svc = UploadService(self._session)
+            uploads = await upload_svc.link_uploads(data.photo_ids, user.id, "article", article_id)
+            for i, u in enumerate(uploads):
+                photo = ArticlePhoto(article_id=article_id, url=u.url, file_name=u.file_name, position=i)
+                self._session.add(photo)
 
         await self._session.commit()
         self._session.expire_all()

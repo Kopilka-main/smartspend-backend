@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -14,18 +16,41 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from src.app.admin import setup_admin
 from src.app.api.v1.router import api_router
 from src.app.core.config import settings
-from src.app.core.database import get_session
+from src.app.core.database import async_session_factory, get_session
+from src.app.services.upload import UploadService
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("/app/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+CLEANUP_INTERVAL = 3600
+
+
+async def _cleanup_loop():
+    while True:
+        try:
+            async with async_session_factory() as session:
+                svc = UploadService(session)
+                await svc.cleanup_stale(max_age_hours=24)
+        except Exception:
+            logger.exception("Upload cleanup failed")
+        await asyncio.sleep(CLEANUP_INTERVAL)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    task = asyncio.create_task(_cleanup_loop())
+    yield
+    task.cancel()
+
+
 app = FastAPI(
     title="SmartSpend API",
     version="0.1.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    lifespan=lifespan,
 )
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
