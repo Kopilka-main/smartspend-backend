@@ -43,7 +43,11 @@ class UploadService:
         await self._session.refresh(upload)
         await self._session.commit()
         return UploadResponse(
-            id=upload.id, url=upload.url, file_name=upload.file_name, position=upload.position, created_at=upload.created_at
+            id=upload.id,
+            url=upload.url,
+            file_name=upload.file_name,
+            position=upload.position,
+            created_at=upload.created_at,
         )
 
     async def delete(self, upload_id: int, user_id: uuid.UUID) -> None:
