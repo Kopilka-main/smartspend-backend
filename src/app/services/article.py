@@ -34,6 +34,7 @@ from src.app.schemas.article import (
     LinkedSetInfo,
     SetLinkCard,
 )
+from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
 from src.app.services.upload import UploadService
 
@@ -63,6 +64,7 @@ def _article_to_response(
     category_name: str | None = None,
     linked_sets: list | None = None,
     set_link=None,
+    reactions: list[ReactionCount] | None = None,
 ) -> ArticleResponse:
     photos = [
         ArticlePhotoResponse(id=p.id, url=p.url, file_name=p.file_name, position=p.position, created_at=p.created_at)
@@ -91,6 +93,7 @@ def _article_to_response(
         set_link=set_link,
         blocks=[],
         photos=photos,
+        reactions=reactions or [],
         author=_author_info(a.author),
         created_at=a.created_at,
         updated_at=a.updated_at,
@@ -103,6 +106,7 @@ def _article_to_list_item(
     category_name: str | None = None,
     linked_sets: list | None = None,
     set_link=None,
+    reactions: list[ReactionCount] | None = None,
 ) -> ArticleListItem:
     return ArticleListItem(
         id=a.id,
@@ -124,6 +128,7 @@ def _article_to_list_item(
         linked_set_ids=a.linked_set_ids,
         linked_set_title=set_title,
         linked_sets=linked_sets or [],
+        reactions=reactions or [],
         author=_author_info(a.author),
         created_at=a.created_at,
     )
@@ -233,10 +238,18 @@ class ArticleService:
             linked_set_id=linked_set_id,
         )
         sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats(articles)
+        article_ids = [a.id for a in articles]
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        reactions_map = await reaction_repo.count_grouped_bulk("article", article_ids)
         result = []
         for a in articles:
             st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
-            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl))
+            rr = [ReactionCount(emoji=e, count=c) for e, c in reactions_map.get(a.id, [])]
+            result.append(
+                _article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl, reactions=rr)
+            )
         return result, total
 
     async def list_by_author(
@@ -244,10 +257,18 @@ class ArticleService:
     ) -> tuple[list[ArticleListItem], int]:
         articles, total = await self._repo.list_by_author(author_id, limit, offset)
         sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats(articles)
+        article_ids = [a.id for a in articles]
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        reactions_map = await reaction_repo.count_grouped_bulk("article", article_ids)
         result = []
         for a in articles:
             st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
-            result.append(_article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl))
+            rr = [ReactionCount(emoji=e, count=c) for e, c in reactions_map.get(a.id, [])]
+            result.append(
+                _article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl, reactions=rr)
+            )
         return result, total
 
     async def get_article(self, article_id: str, user_id=None) -> ArticleResponse:
@@ -256,7 +277,12 @@ class ArticleService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
         sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats([a])
         st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
-        resp = _article_to_response(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl)
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        raw = await reaction_repo.count_grouped("article", article_id)
+        rr = [ReactionCount(emoji=e, count=c) for e, c in raw]
+        resp = _article_to_response(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl, reactions=rr)
         resp.blocks = [
             ArticleBlockResponse(
                 id=b.id,

@@ -58,3 +58,28 @@ class ReactionRepository:
             stmt = stmt.where(Reaction.target_type == target_type)
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_grouped(self, target_type: str, target_id: str) -> list[tuple[str, int]]:
+        stmt = (
+            select(Reaction.type, func.count())
+            .where(Reaction.target_type == target_type, Reaction.target_id == target_id)
+            .group_by(Reaction.type)
+            .order_by(func.count().desc())
+        )
+        result = await self._session.execute(stmt)
+        return list(result.all())
+
+    async def count_grouped_bulk(self, target_type: str, target_ids: list[str]) -> dict[str, list[tuple[str, int]]]:
+        if not target_ids:
+            return {}
+        stmt = (
+            select(Reaction.target_id, Reaction.type, func.count())
+            .where(Reaction.target_type == target_type, Reaction.target_id.in_(target_ids))
+            .group_by(Reaction.target_id, Reaction.type)
+            .order_by(Reaction.target_id, func.count().desc())
+        )
+        result = await self._session.execute(stmt)
+        grouped: dict[str, list[tuple[str, int]]] = {}
+        for target_id, rtype, cnt in result.all():
+            grouped.setdefault(target_id, []).append((rtype, cnt))
+        return grouped

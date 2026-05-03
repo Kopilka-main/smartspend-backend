@@ -68,6 +68,12 @@ class ReactionService:
             for r in reactions
         ]
 
+    async def get_reactions_for(self, target_type: str, target_id: str) -> list[tuple[str, int]]:
+        return await self._repo.count_grouped(target_type, target_id)
+
+    async def get_reactions_bulk(self, target_type: str, target_ids: list[str]) -> dict[str, list[tuple[str, int]]]:
+        return await self._repo.count_grouped_bulk(target_type, target_ids)
+
     async def _sync_counts(self, target_type: str, target_id: str) -> None:
         likes = await self._repo.count(target_type, target_id, "like")
         dislikes = await self._repo.count(target_type, target_id, "dislike")

@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import Field
 
 from src.app.schemas.base import CamelModel
+from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
 
 
@@ -84,6 +85,7 @@ class ArticleResponse(CamelModel):
     blocks: list[ArticleBlockResponse] = []
     photos: list[ArticlePhotoResponse] = []
     notes: list[ArticleNoteResponse] = []
+    reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
     created_at: datetime
     updated_at: datetime
@@ -109,6 +111,7 @@ class ArticleListItem(CamelModel):
     linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
     linked_sets: list[LinkedSetInfo] = []
+    reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
     created_at: datetime
 

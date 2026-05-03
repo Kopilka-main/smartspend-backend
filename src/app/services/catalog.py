@@ -29,6 +29,7 @@ from src.app.schemas.catalog import (
     SetResponse,
     SetUpdate,
 )
+from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
 from src.app.services.upload import UploadService
 
@@ -98,7 +99,9 @@ def _author_info(user) -> AuthorInfo | None:
     )
 
 
-def _set_to_response(s: Set, category_name: str | None = None, comments_count: int = 0) -> SetResponse:
+def _set_to_response(
+    s: Set, category_name: str | None = None, comments_count: int = 0, reactions: list[ReactionCount] | None = None
+) -> SetResponse:
     items = [
         SetItemResponse(
             id=i.id,
@@ -149,13 +152,16 @@ def _set_to_response(s: Set, category_name: str | None = None, comments_count: i
         about_text=s.about_text,
         items=items,
         photos=photos,
+        reactions=reactions or [],
         author=_author_info(s.author),
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
 
 
-def _set_to_list_item(s: Set, category_name: str | None = None, comments_count: int = 0) -> SetListItem:
+def _set_to_list_item(
+    s: Set, category_name: str | None = None, comments_count: int = 0, reactions: list[ReactionCount] | None = None
+) -> SetListItem:
     items = [
         SetItemResponse(
             id=i.id,
@@ -198,6 +204,7 @@ def _set_to_list_item(s: Set, category_name: str | None = None, comments_count: 
         items_count=len(s.items) if s.items else 0,
         items=items,
         tags=_build_set_tags(s),
+        reactions=reactions or [],
         author=_author_info(s.author),
         created_at=s.created_at,
     )
@@ -217,10 +224,16 @@ class CatalogService:
 
     async def _enrich_list(self, sets: list[Set]) -> list[SetListItem]:
         cats = await self._get_category_names()
+        set_ids = [s.id for s in sets]
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        reactions_map = await reaction_repo.count_grouped_bulk("set", set_ids)
         result = []
         for s in sets:
             cc = len(s.comments) if s.comments else 0
-            result.append(_set_to_list_item(s, category_name=cats.get(s.category_id), comments_count=cc))
+            rr = [ReactionCount(emoji=e, count=c) for e, c in reactions_map.get(s.id, [])]
+            result.append(_set_to_list_item(s, category_name=cats.get(s.category_id), comments_count=cc, reactions=rr))
         return result
 
     async def list_sets(
@@ -256,7 +269,12 @@ class CatalogService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
         cats = await self._get_category_names()
         cc = len(s.comments) if s.comments else 0
-        return _set_to_response(s, category_name=cats.get(s.category_id), comments_count=cc)
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        raw = await reaction_repo.count_grouped("set", set_id)
+        rr = [ReactionCount(emoji=e, count=c) for e, c in raw]
+        return _set_to_response(s, category_name=cats.get(s.category_id), comments_count=cc, reactions=rr)
 
     async def create_set(self, user: User, data: SetCreate) -> SetResponse:
         set_id = f"u_{int(time.time() * 1000)}"

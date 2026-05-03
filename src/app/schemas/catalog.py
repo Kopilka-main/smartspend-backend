@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from src.app.schemas.base import CamelModel
+from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
 
 
@@ -74,6 +75,7 @@ class SetResponse(CamelModel):
     about_text: str | None = None
     items: list[SetItemResponse] = []
     photos: list[SetPhotoResponse] = []
+    reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
     created_at: datetime
     updated_at: datetime
@@ -101,6 +103,7 @@ class SetListItem(CamelModel):
     items_count: int = 0
     items: list[SetItemResponse] = []
     tags: list[str] = []
+    reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
     created_at: datetime
 
