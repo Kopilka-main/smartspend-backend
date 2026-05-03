@@ -38,3 +38,17 @@ async def delete_envelope(envelope_id: int, user: CurrentUser, session: Session)
     service = EnvelopeService(session)
     await service.delete_envelope(envelope_id, user.id)
     return ApiResponse(data=None)
+
+
+@router.put("/sets/{set_id}/pause", response_model=ApiResponse[None])
+async def pause_envelope(set_id: str, user: CurrentUser, session: Session):
+    service = EnvelopeService(session)
+    await service.toggle_pause(user, set_id, paused=True)
+    return ApiResponse(data=None)
+
+
+@router.put("/sets/{set_id}/start", response_model=ApiResponse[None])
+async def start_envelope(set_id: str, user: CurrentUser, session: Session):
+    service = EnvelopeService(session)
+    await service.toggle_pause(user, set_id, paused=False)
+    return ApiResponse(data=None)

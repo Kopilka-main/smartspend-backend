@@ -28,7 +28,11 @@ class EnvelopeService:
 
     async def list_envelopes(self, user_id: uuid.UUID) -> list[EnvelopeResponse]:
         rows = await self._repo.list_by_user(user_id)
-        return [EnvelopeResponse.from_orm_obj(e, source=source) for e, source in rows]
+        result = []
+        for e, source in rows:
+            paused = await self._check_all_paused(user_id, e.set_id)
+            result.append(EnvelopeResponse.from_orm_obj(e, source=source, paused=paused))
+        return result
 
     async def add_set_to_profile(self, user: User, set_id: str) -> EnvelopeResponse:
         existing = await self._repo.find_by_user_set(user.id, set_id)
@@ -133,3 +137,26 @@ class EnvelopeService:
         result = await self._session.execute(stmt)
         row = result.scalar_one_or_none()
         return row if row else "g8"
+
+    async def _check_all_paused(self, user_id: uuid.UUID, set_id: str) -> bool:
+        stmt = select(InventoryItem.paused).where(InventoryItem.user_id == user_id, InventoryItem.set_id == set_id)
+        result = await self._session.execute(stmt)
+        statuses = result.scalars().all()
+        if not statuses:
+            return True
+        return all(statuses)
+
+    async def toggle_pause(self, user: User, set_id: str, paused: bool) -> None:
+        envelope = await self._repo.find_by_user_set(user.id, set_id)
+        if envelope is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Set not in your profile",
+            )
+        stmt = (
+            sa_update(InventoryItem)
+            .where(InventoryItem.user_id == user.id, InventoryItem.set_id == set_id)
+            .values(paused=paused)
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
