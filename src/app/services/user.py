@@ -1,8 +1,10 @@
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
-from fastapi import HTTPException, status
+import aiofiles
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -196,3 +198,37 @@ class UserService:
             is_following=is_following,
             is_deleted=is_ghost,
         )
+
+    async def upload_avatar(self, user: User, file: UploadFile) -> UserResponse:
+        allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+        if file.content_type not in allowed:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image type")
+
+        content = await file.read()
+        if len(content) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 5 MB)")
+
+        ext_map = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+        ext = ext_map[file.content_type]
+        upload_dir = Path("/app/uploads/avatars")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_name = f"{user.id}.{ext}"
+
+        async with aiofiles.open(upload_dir / file_name, "wb") as f:
+            await f.write(content)
+
+        avatar_url = f"/uploads/avatars/{file_name}"
+        await self._repo.update_fields(user.id, avatar_url=avatar_url)
+        await self._session.commit()
+        refreshed = await self._repo.get_by_id(user.id)
+        return _user_to_response(refreshed)
+
+    async def delete_avatar(self, user: User) -> UserResponse:
+        if user.avatar_url:
+            file_path = Path("/app") / user.avatar_url.lstrip("/")
+            if file_path.exists():
+                file_path.unlink()
+        await self._repo.update_fields(user.id, avatar_url=None)
+        await self._session.commit()
+        refreshed = await self._repo.get_by_id(user.id)
+        return _user_to_response(refreshed)

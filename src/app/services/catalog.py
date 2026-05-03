@@ -14,6 +14,7 @@ from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.saved_set import SavedSet
 from src.app.models.set import Set, SetItem
 from src.app.models.set_comment import SetComment
+from src.app.models.set_note import SetNote
 from src.app.models.set_photo import SetPhoto
 from src.app.models.user import User
 from src.app.repositories.catalog import CatalogRepository
@@ -23,6 +24,7 @@ from src.app.schemas.catalog import (
     SetCreate,
     SetItemResponse,
     SetListItem,
+    SetNoteResponse,
     SetPhotoResponse,
     SetResponse,
     SetUpdate,
@@ -517,3 +519,47 @@ class CatalogService:
         if result.rowcount == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not bookmarked")
         await self._session.commit()
+
+    async def list_notes(self, set_id: str, user_id) -> list[SetNoteResponse]:
+        stmt = (
+            select(SetNote)
+            .where(SetNote.set_id == set_id, SetNote.user_id == user_id)
+            .order_by(SetNote.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        notes = result.scalars().all()
+        return [SetNoteResponse(id=n.id, text=n.text, created_at=n.created_at) for n in notes]
+
+    async def add_note(self, set_id: str, user: User, text: str) -> SetNoteResponse:
+        s = await self._repo.get_by_id(set_id)
+        if s is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
+        note = SetNote(set_id=set_id, user_id=user.id, text=text)
+        self._session.add(note)
+        await self._session.flush()
+        await self._session.refresh(note)
+        await self._session.commit()
+        return SetNoteResponse(id=note.id, text=note.text, created_at=note.created_at)
+
+    async def delete_note(self, note_id: int, user: User) -> None:
+        note = await self._session.get(SetNote, note_id)
+        if note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        if note.user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your note")
+        await self._session.delete(note)
+        await self._session.commit()
+
+    async def publish_set(self, set_id: str, user: User) -> SetResponse:
+        s = await self._repo.get_by_id(set_id)
+        if s is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
+        if s.author_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your set")
+        if s.status != "draft":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only draft sets can be published")
+        stmt = sa_update(Set).where(Set.id == set_id).values(status="published")
+        await self._session.execute(stmt)
+        await self._session.commit()
+        self._session.expire_all()
+        return await self.get_set(set_id)

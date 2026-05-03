@@ -31,6 +31,7 @@ from src.app.models.reaction import Reaction
 from src.app.models.saved_set import SavedSet
 from src.app.models.set import Set, SetItem
 from src.app.models.set_comment import SetComment
+from src.app.models.set_note import SetNote
 from src.app.models.set_photo import SetPhoto
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
@@ -71,6 +72,7 @@ __all__ = [
     "Set",
     "SetComment",
     "SetItem",
+    "SetNote",
     "SetPhoto",
     "SetSource",
     "Theme",

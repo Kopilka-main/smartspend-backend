@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile
 
 from src.app.core.dependencies import CurrentUser, CurrentUserAllowPending, OptionalUser, Session
 from src.app.schemas.auth import UserResponse
@@ -31,6 +31,20 @@ async def get_me(user: CurrentUser, session: Session):
 async def update_me(body: ProfileUpdate, user: CurrentUser, session: Session):
     service = UserService(session)
     updated = await service.update_profile(user, body)
+    return ApiResponse(data=updated)
+
+
+@router.post("/me/avatar", response_model=ApiResponse[UserResponse])
+async def upload_avatar(file: UploadFile, user: CurrentUser, session: Session):
+    service = UserService(session)
+    updated = await service.upload_avatar(user, file)
+    return ApiResponse(data=updated)
+
+
+@router.delete("/me/avatar", response_model=ApiResponse[UserResponse])
+async def delete_avatar(user: CurrentUser, session: Session):
+    service = UserService(session)
+    updated = await service.delete_avatar(user)
     return ApiResponse(data=updated)
 
 

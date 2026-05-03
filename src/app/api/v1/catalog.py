@@ -7,6 +7,8 @@ from src.app.schemas.catalog import (
     SetCommentResponse,
     SetCreate,
     SetListItem,
+    SetNoteCreate,
+    SetNoteResponse,
     SetPhotoResponse,
     SetResponse,
     SetUpdate,
@@ -148,3 +150,29 @@ async def unbookmark_set(set_id: str, user: CurrentUser, session: Session):
     service = CatalogService(session)
     await service.unbookmark(set_id, user.id)
     return ApiResponse(data=None)
+
+
+@router.get("/{set_id}/notes", response_model=ApiResponse[list[SetNoteResponse]])
+async def list_notes(set_id: str, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    notes = await service.list_notes(set_id, user.id)
+    return ApiResponse(data=notes)
+
+
+@router.post("/{set_id}/notes", response_model=ApiResponse[SetNoteResponse], status_code=201)
+async def add_note(set_id: str, body: SetNoteCreate, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    return ApiResponse(data=await service.add_note(set_id, user, body.text))
+
+
+@router.delete("/notes/{note_id}", response_model=ApiResponse[None])
+async def delete_note(note_id: int, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    await service.delete_note(note_id, user)
+    return ApiResponse(data=None)
+
+
+@router.post("/{set_id}/publish", response_model=ApiResponse[SetResponse])
+async def publish_set(set_id: str, user: CurrentUser, session: Session):
+    service = CatalogService(session)
+    return ApiResponse(data=await service.publish_set(set_id, user))

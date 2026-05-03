@@ -33,7 +33,7 @@ async def send_email(to: str, subject: str, html: str) -> None:
 
 
 async def send_verification_email(to: str, token: str) -> None:
-    link = f"{settings.frontend_url}/#/verify-email?token={token}"
+    link = f"{settings.frontend_url}/settings?verifyEmail=1&token={token}"
     html = (
         "<h2>Подтверждение email</h2>"
         f'<p>Для подтверждения email перейдите по ссылке:</p><p><a href="{link}">{link}</a></p>'
@@ -42,6 +42,6 @@ async def send_verification_email(to: str, token: str) -> None:
 
 
 async def send_reset_password_email(to: str, token: str) -> None:
-    link = f"{settings.frontend_url}/#/reset-password?token={token}"
+    link = f"{settings.frontend_url}/?resetPassword=1&token={token}"
     html = f'<h2>Сброс пароля</h2><p>Для сброса пароля перейдите по ссылке:</p><p><a href="{link}">{link}</a></p>'
     await send_email(to, "Сброс пароля — SmartSpend", html)

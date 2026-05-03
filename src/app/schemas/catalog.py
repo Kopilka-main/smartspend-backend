@@ -128,6 +128,12 @@ class SetUpdate(CamelModel):
     items: list[SetItemCreate] | None = None
 
 
+class SetNoteResponse(CamelModel):
+    id: int
+    text: str
+    created_at: datetime
+
+
 class SetCommentResponse(CamelModel):
     id: int
     set_id: str
@@ -144,3 +150,7 @@ class SetCommentResponse(CamelModel):
 class SetCommentCreate(CamelModel):
     text: str = Field(min_length=1, max_length=2000)
     parent_id: int | None = None
+
+
+class SetNoteCreate(CamelModel):
+    text: str = Field(min_length=1, max_length=5000)
