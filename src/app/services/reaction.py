@@ -14,6 +14,7 @@ from src.app.repositories.reaction import ReactionRepository
 from src.app.schemas.reaction import ReactionCreate, ReactionResponse
 
 VALID_TARGETS = {t.value for t in ReactionTarget}
+LIKE_DISLIKE = {"like", "dislike"}
 
 
 class ReactionService:
@@ -28,13 +29,17 @@ class ReactionService:
                 detail=f"Invalid target_type, must be one of: {', '.join(VALID_TARGETS)}",
             )
 
-        existing = await self._repo.find(user_id, data.target_type, data.target_id)
+        existing = await self._repo.find(user_id, data.target_type, data.target_id, data.type)
 
-        if existing and existing.type == data.type:
-            await self._repo.remove(user_id, data.target_type, data.target_id)
+        if existing:
+            await self._repo.remove(user_id, data.target_type, data.target_id, data.type)
             await self._sync_counts(data.target_type, data.target_id)
             await self._session.commit()
             return None
+
+        if data.type in LIKE_DISLIKE:
+            opposite = "dislike" if data.type == "like" else "like"
+            await self._repo.remove(user_id, data.target_type, data.target_id, opposite)
 
         reaction = await self._repo.upsert(
             user_id,

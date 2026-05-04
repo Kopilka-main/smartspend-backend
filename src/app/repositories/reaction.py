@@ -10,20 +10,19 @@ class ReactionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def find(self, user_id: uuid.UUID, target_type: str, target_id: str) -> Reaction | None:
+    async def find(self, user_id: uuid.UUID, target_type: str, target_id: str, reaction_type: str) -> Reaction | None:
         stmt = select(Reaction).where(
             Reaction.user_id == user_id,
             Reaction.target_type == target_type,
             Reaction.target_id == target_id,
+            Reaction.type == reaction_type,
         )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def upsert(self, user_id: uuid.UUID, target_type: str, target_id: str, reaction_type: str) -> Reaction:
-        existing = await self.find(user_id, target_type, target_id)
+        existing = await self.find(user_id, target_type, target_id, reaction_type)
         if existing:
-            existing.type = reaction_type
-            await self._session.flush()
             return existing
         reaction = Reaction(
             user_id=user_id,
@@ -36,11 +35,12 @@ class ReactionRepository:
         await self._session.refresh(reaction)
         return reaction
 
-    async def remove(self, user_id: uuid.UUID, target_type: str, target_id: str) -> None:
+    async def remove(self, user_id: uuid.UUID, target_type: str, target_id: str, reaction_type: str) -> None:
         stmt = delete(Reaction).where(
             Reaction.user_id == user_id,
             Reaction.target_type == target_type,
             Reaction.target_id == target_id,
+            Reaction.type == reaction_type,
         )
         await self._session.execute(stmt)
 
