@@ -193,13 +193,19 @@ class PromoService:
         return await self._enrich_promo(promo, viewer_id=viewer_id)
 
     async def create_promo(self, user: User, data: PromoCreate) -> PromoResponse:
+        text = data.text or data.title or ""
+        if not text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either text or title is required",
+            )
         promo = Promo(
             type=data.type,
             company_id=data.company_id,
             category_id=data.category_id,
             author_id=user.id,
             title=data.title,
-            text=data.text,
+            text=text,
             code=data.code,
             source_url=data.source_url,
             channel=data.channel,

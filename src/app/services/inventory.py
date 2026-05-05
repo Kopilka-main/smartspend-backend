@@ -10,7 +10,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.models.inventory_group import InventoryGroup
+from src.app.models.inventory_group import InventoryGroup, InventoryGroupCategory
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
 from src.app.models.set import Set
 from src.app.models.user import User
@@ -232,6 +232,21 @@ class InventoryService:
         result = await self._session.execute(select(InventoryGroup.id, InventoryGroup.name))
         return dict(result.all())
 
+    async def _resolve_group_id(self, raw: str) -> str:
+        exists = await self._session.execute(select(InventoryGroup.id).where(InventoryGroup.id == raw))
+        if exists.scalar_one_or_none():
+            return raw
+        by_cat = await self._session.execute(
+            select(InventoryGroupCategory.group_id).where(InventoryGroupCategory.category_id == raw).limit(1)
+        )
+        resolved = by_cat.scalar_one_or_none()
+        if resolved:
+            return resolved
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown group or category: {raw}",
+        )
+
     async def _get_set_names(self, set_ids: set[str]) -> dict[str, str]:
         if not set_ids:
             return {}
@@ -262,6 +277,8 @@ class InventoryService:
     async def create_item(self, user: User, data: InventoryItemCreate) -> InventoryItemResponse:
         item_id = f"inv_{int(time.time() * 1000)}"
 
+        group_id = await self._resolve_group_id(data.group_id)
+
         wear_life_weeks = data.wear_life_weeks
         daily_use = data.daily_use
 
@@ -274,7 +291,7 @@ class InventoryService:
         item = InventoryItem(
             id=item_id,
             user_id=user.id,
-            group_id=data.group_id,
+            group_id=group_id,
             type=data.type,
             name=data.name,
             price=data.price,

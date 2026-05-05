@@ -367,6 +367,14 @@ class ArticleService:
             updates["preview"] = data.preview
         if data.linked_set_id is not None:
             updates["linked_set_id"] = data.linked_set_id
+        if data.linked_set_ids is not None:
+            updates["linked_set_ids"] = data.linked_set_ids
+        if data.is_private is not None:
+            updates["is_private"] = data.is_private
+        if data.read_time is not None:
+            updates["read_time"] = data.read_time
+        if data.tags is not None:
+            updates["tags"] = data.tags
 
         if updates:
             stmt = sa_update(Article).where(Article.id == article_id).values(**updates)

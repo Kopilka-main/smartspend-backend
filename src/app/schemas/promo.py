@@ -45,7 +45,7 @@ class PromoCreate(CamelModel):
     company_id: str | None = None
     category_id: str | None = None
     title: str | None = Field(None, max_length=300)
-    text: str = Field(min_length=1, max_length=5000)
+    text: str | None = Field(None, max_length=5000)
     code: str | None = Field(None, max_length=100)
     source_url: str | None = None
     channel: str | None = Field(None, max_length=50)

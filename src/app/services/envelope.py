@@ -103,7 +103,8 @@ class EnvelopeService:
         stmt = sa_update(Set).where(Set.id == set_id).values(users_count=Set.users_count + 1)
         await self._session.execute(stmt)
         await self._session.commit()
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source)
+        paused = await self._check_all_paused(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused)
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
         envelope = await self._repo.find_by_user_set(user.id, set_id)

@@ -102,14 +102,15 @@ async def oauth_yandex():
 
 @router.get("/oauth/vk")
 async def oauth_vk():
-    return RedirectResponse(get_vk_auth_url())
+    url, _state = get_vk_auth_url()
+    return RedirectResponse(url)
 
 
 @router.get("/callback/yandex")
 async def callback_yandex(session: Session, code: str = Query(...)):
     _, tokens = await handle_yandex_callback(code, session)
     return RedirectResponse(
-        f"{settings.frontend_url}/#/oauth-success?accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
+        f"{settings.frontend_url}/?oauthSuccess=1&accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
     )
 
 
@@ -118,8 +119,9 @@ async def callback_vk(
     session: Session,
     code: str = Query(...),
     device_id: str = Query(""),
+    state: str = Query(""),
 ):
-    _, tokens = await handle_vk_callback(code, device_id, session)
+    _, tokens = await handle_vk_callback(code, device_id, state, session)
     return RedirectResponse(
-        f"{settings.frontend_url}/#/oauth-success?accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
+        f"{settings.frontend_url}/?oauthSuccess=1&accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
     )
