@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import Field
 
@@ -23,6 +24,7 @@ class EnvelopeResponse(CamelModel):
     source: str | None = None
     period: str | None = None
     paused: bool = False
+    scale: Decimal = Decimal("1.00")
     created_at: datetime
     updated_at: datetime
 
@@ -40,6 +42,7 @@ class EnvelopeResponse(CamelModel):
             source=source,
             period=e.period,
             paused=paused,
+            scale=e.scale if e.scale is not None else Decimal("1.00"),
             created_at=e.created_at,
             updated_at=e.updated_at,
         )

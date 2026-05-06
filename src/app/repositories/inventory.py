@@ -71,6 +71,15 @@ class InventoryRepository:
         result = await self._session.execute(stmt)
         return len(result.all())
 
+    async def delete_by_set_and_user(self, user_id: uuid.UUID, set_id: str) -> int:
+        stmt = (
+            delete(InventoryItem)
+            .where(InventoryItem.user_id == user_id, InventoryItem.set_id == set_id)
+            .returning(InventoryItem.id)
+        )
+        result = await self._session.execute(stmt)
+        return len(result.all())
+
     async def count_by_user(self, user_id: uuid.UUID) -> int:
         stmt = select(func.count()).where(InventoryItem.user_id == user_id)
         return (await self._session.execute(stmt)).scalar_one()

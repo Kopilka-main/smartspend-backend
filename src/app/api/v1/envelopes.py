@@ -52,3 +52,22 @@ async def start_envelope(set_id: str, user: CurrentUser, session: Session):
     service = EnvelopeService(session)
     await service.toggle_pause(user, set_id, paused=False)
     return ApiResponse(data=None)
+
+
+@router.put("/sets/{set_id}/scale", response_model=ApiResponse[EnvelopeResponse])
+async def update_envelope_scale(set_id: str, body: dict, user: CurrentUser, session: Session):
+    service = EnvelopeService(session)
+    scale = body.get("scale", 1)
+    return ApiResponse(data=await service.update_scale(user, set_id, scale))
+
+
+@router.post("/sets/{set_id}/reset", response_model=ApiResponse[EnvelopeResponse])
+async def reset_envelope(set_id: str, user: CurrentUser, session: Session):
+    service = EnvelopeService(session)
+    return ApiResponse(data=await service.reset_envelope(user, set_id))
+
+
+@router.put("/sets/{set_id}/items", response_model=ApiResponse[EnvelopeResponse])
+async def update_envelope_items(set_id: str, body: dict, user: CurrentUser, session: Session):
+    service = EnvelopeService(session)
+    return ApiResponse(data=await service.update_items(user, set_id, body.get("items", [])))

@@ -1,5 +1,6 @@
 import time
 import uuid
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -161,3 +162,120 @@ class EnvelopeService:
         )
         await self._session.execute(stmt)
         await self._session.commit()
+
+    async def update_scale(self, user: User, set_id: str, scale) -> EnvelopeResponse:
+        envelope = await self._repo.find_by_user_set(user.id, set_id)
+        if envelope is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Set not in your profile",
+            )
+        new_scale = Decimal(str(scale))
+        if new_scale <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Scale must be > 0")
+        await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(scale=new_scale))
+        await self._session.commit()
+        await self._session.refresh(envelope)
+        paused = await self._check_all_paused(user.id, set_id)
+        catalog_repo = CatalogRepository(self._session)
+        s = await catalog_repo.get_by_id(set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused)
+
+    async def reset_envelope(self, user: User, set_id: str) -> EnvelopeResponse:
+        envelope = await self._repo.find_by_user_set(user.id, set_id)
+        if envelope is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Set not in your profile",
+            )
+        catalog_repo = CatalogRepository(self._session)
+        s = await catalog_repo.get_by_id(set_id)
+        if s is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
+
+        inv_repo = InventoryRepository(self._session)
+        await inv_repo.delete_by_set_and_user(user.id, set_id)
+
+        group_id = await self._resolve_group(s.category_id)
+        ts = int(time.time() * 1000)
+        inv_items = []
+        for idx, si in enumerate(s.items or []):
+            item_id = f"inv_{set_id}_{idx}_{ts}"
+            bp = int(si.base_price) if si.base_price else (si.price or 0)
+            py = si.period_years or 0
+            inv_item = InventoryItem(
+                id=item_id,
+                user_id=user.id,
+                group_id=group_id,
+                type=si.item_type,
+                name=si.name,
+                price=bp,
+                set_id=set_id,
+                is_extra=True,
+                paused=True,
+                qty=si.qty if si.item_type == "consumable" else None,
+                unit=si.unit if si.item_type == "consumable" else None,
+                daily_use=None,
+                last_bought=None,
+                wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
+            )
+            inv_items.append(inv_item)
+        if inv_items:
+            await inv_repo.bulk_create(inv_items)
+
+        await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(scale=Decimal("1.00")))
+        await self._session.commit()
+        await self._session.refresh(envelope)
+        paused = await self._check_all_paused(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused)
+
+    async def update_items(self, user: User, set_id: str, items: list[dict]) -> EnvelopeResponse:
+        envelope = await self._repo.find_by_user_set(user.id, set_id)
+        if envelope is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Set not in your profile",
+            )
+        catalog_repo = CatalogRepository(self._session)
+        s = await catalog_repo.get_by_id(set_id)
+        if s is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
+
+        inv_repo = InventoryRepository(self._session)
+        await inv_repo.delete_by_set_and_user(user.id, set_id)
+
+        group_id = await self._resolve_group(s.category_id)
+        ts = int(time.time() * 1000)
+        inv_items: list[InventoryItem] = []
+        for idx, it in enumerate(items):
+            item_type = it.get("itemType") or it.get("type") or "consumable"
+            wl_weeks = it.get("wearLifeWeeks")
+            if wl_weeks is None and it.get("periodYears"):
+                wl_weeks = int(float(it["periodYears"]) * 52)
+            inv_item = InventoryItem(
+                id=f"inv_{set_id}_{idx}_{ts}",
+                user_id=user.id,
+                group_id=group_id,
+                type=item_type,
+                name=it.get("name", ""),
+                price=int(it.get("price", 0) or 0),
+                set_id=set_id,
+                is_extra=True,
+                paused=True,
+                qty=it.get("qty") if item_type == "consumable" else None,
+                unit=it.get("unit") if item_type == "consumable" else None,
+                daily_use=it.get("dailyUse"),
+                last_bought=None,
+                wear_life_weeks=wl_weeks if item_type == "wear" else None,
+            )
+            inv_items.append(inv_item)
+        if inv_items:
+            await inv_repo.bulk_create(inv_items)
+
+        await self._session.execute(
+            sa_update(Envelope).where(Envelope.id == envelope.id).values(items_count=len(inv_items))
+        )
+        await self._session.commit()
+        await self._session.refresh(envelope)
+        paused = await self._check_all_paused(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused)
