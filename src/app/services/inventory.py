@@ -10,6 +10,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.inventory_group import InventoryGroup, InventoryGroupCategory
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
 from src.app.models.set import Set
@@ -81,6 +82,7 @@ def _item_to_response(
     item: InventoryItem,
     group_names: dict[str, str],
     set_names: dict[str, str],
+    set_categories: dict[str, tuple[str | None, str | None]] | None = None,
 ) -> InventoryItemResponse:
     wear_life = item.wear_life
     wear_life_unit = item.wear_life_unit
@@ -172,6 +174,8 @@ def _item_to_response(
         user_id=str(item.user_id),
         group_id=item.group_id,
         group_name=group_names.get(item.group_id),
+        category_id=(set_categories or {}).get(item.set_id or "", (None, None))[0] if item.set_id else None,
+        category_name=(set_categories or {}).get(item.set_id or "", (None, None))[1] if item.set_id else None,
         type=item.type,
         name=item.name,
         price=price,
@@ -253,16 +257,30 @@ class InventoryService:
         result = await self._session.execute(select(Set.id, Set.title).where(Set.id.in_(set_ids)))
         return dict(result.all())
 
+    async def _get_set_categories(self, set_ids: set[str]) -> dict[str, tuple[str | None, str | None]]:
+        if not set_ids:
+            return {}
+        stmt = (
+            select(Set.id, Set.category_id, EnvelopeCategory.name)
+            .outerjoin(EnvelopeCategory, Set.category_id == EnvelopeCategory.id)
+            .where(Set.id.in_(set_ids))
+        )
+        result = await self._session.execute(stmt)
+        return {row[0]: (row[1], row[2]) for row in result.all()}
+
     async def _build_responses(self, items: list[InventoryItem]) -> list[InventoryItemResponse]:
         gn = await self._get_group_names()
         set_ids = {i.set_id for i in items if i.set_id}
         sn = await self._get_set_names(set_ids)
-        return [_item_to_response(i, gn, sn) for i in items]
+        sc = await self._get_set_categories(set_ids)
+        return [_item_to_response(i, gn, sn, sc) for i in items]
 
     async def _build_response(self, item: InventoryItem) -> InventoryItemResponse:
         gn = await self._get_group_names()
-        sn = await self._get_set_names({item.set_id} if item.set_id else set())
-        return _item_to_response(item, gn, sn)
+        sids = {item.set_id} if item.set_id else set()
+        sn = await self._get_set_names(sids)
+        sc = await self._get_set_categories(sids)
+        return _item_to_response(item, gn, sn, sc)
 
     async def list_items(self, user_id: uuid.UUID, group_id: str | None = None) -> list[InventoryItemResponse]:
         items = await self._repo.list_by_user(user_id, group_id)
