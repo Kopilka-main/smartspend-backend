@@ -35,7 +35,22 @@ class EnvelopeService:
             result.append(EnvelopeResponse.from_orm_obj(e, source=source, paused=paused))
         return result
 
-    async def add_set_to_profile(self, user: User, set_id: str) -> EnvelopeResponse:
+    async def get_envelope_by_set(self, user_id: uuid.UUID, set_id: str) -> EnvelopeResponse | None:
+        envelope = await self._repo.find_by_user_set(user_id, set_id)
+        if envelope is None:
+            return None
+        catalog_repo = CatalogRepository(self._session)
+        s = await catalog_repo.get_by_id(set_id)
+        paused = await self._check_all_paused(user_id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused)
+
+    async def add_set_to_profile(
+        self,
+        user: User,
+        set_id: str,
+        scale: float | str | None = None,
+        items: list[dict] | None = None,
+    ) -> EnvelopeResponse:
         existing = await self._repo.find_by_user_set(user.id, set_id)
         if existing is not None:
             raise HTTPException(
@@ -60,6 +75,7 @@ class EnvelopeService:
                 monthly = int((bp * qty) / (py * 12))
                 total_amount += monthly
 
+        env_scale = Decimal(str(scale)) if scale else Decimal("1.00")
         envelope = Envelope(
             user_id=user.id,
             category_id=s.category_id,
@@ -68,6 +84,7 @@ class EnvelopeService:
             items_count=len(s.items or []),
             amount=total_amount,
             envelope_type="consumable",
+            scale=env_scale,
         )
         envelope = await self._repo.create(envelope)
 
@@ -76,27 +93,52 @@ class EnvelopeService:
         ts = int(time.time() * 1000)
 
         inv_items = []
-        for idx, si in enumerate(s.items or []):
-            item_id = f"inv_{set_id}_{idx}_{ts}"
-            bp = int(si.base_price) if si.base_price else (si.price or 0)
-            py = si.period_years or 0
-            inv_item = InventoryItem(
-                id=item_id,
-                user_id=user.id,
-                group_id=group_id,
-                type=si.item_type,
-                name=si.name,
-                price=bp,
-                set_id=set_id,
-                is_extra=True,
-                paused=True,
-                qty=si.qty if si.item_type == "consumable" else None,
-                unit=si.unit if si.item_type == "consumable" else None,
-                daily_use=None,
-                last_bought=None,
-                wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
-            )
-            inv_items.append(inv_item)
+        if items:
+            for idx, it in enumerate(items):
+                item_type = it.get("itemType") or it.get("type") or "consumable"
+                wl_weeks = it.get("wearLifeWeeks")
+                if wl_weeks is None and it.get("periodYears"):
+                    wl_weeks = int(float(it["periodYears"]) * 52)
+                inv_items.append(
+                    InventoryItem(
+                        id=f"inv_{set_id}_{idx}_{ts}",
+                        user_id=user.id,
+                        group_id=group_id,
+                        type=item_type,
+                        name=it.get("name", ""),
+                        price=int(it.get("price", 0) or 0),
+                        set_id=set_id,
+                        is_extra=True,
+                        paused=True,
+                        qty=it.get("qty") if item_type == "consumable" else None,
+                        unit=it.get("unit") if item_type == "consumable" else None,
+                        daily_use=it.get("dailyUse"),
+                        last_bought=None,
+                        wear_life_weeks=wl_weeks if item_type == "wear" else None,
+                    )
+                )
+        else:
+            for idx, si in enumerate(s.items or []):
+                item_id = f"inv_{set_id}_{idx}_{ts}"
+                bp = int(si.base_price) if si.base_price else (si.price or 0)
+                py = si.period_years or 0
+                inv_item = InventoryItem(
+                    id=item_id,
+                    user_id=user.id,
+                    group_id=group_id,
+                    type=si.item_type,
+                    name=si.name,
+                    price=bp,
+                    set_id=set_id,
+                    is_extra=True,
+                    paused=True,
+                    qty=si.qty if si.item_type == "consumable" else None,
+                    unit=si.unit if si.item_type == "consumable" else None,
+                    daily_use=None,
+                    last_bought=None,
+                    wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
+                )
+                inv_items.append(inv_item)
 
         if inv_items:
             await inv_repo.bulk_create(inv_items)
@@ -165,14 +207,11 @@ class EnvelopeService:
 
     async def update_scale(self, user: User, set_id: str, scale) -> EnvelopeResponse:
         envelope = await self._repo.find_by_user_set(user.id, set_id)
-        if envelope is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Set not in your profile",
-            )
         new_scale = Decimal(str(scale))
         if new_scale <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Scale must be > 0")
+        if envelope is None:
+            return await self.add_set_to_profile(user, set_id, scale=new_scale)
         await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(scale=new_scale))
         await self._session.commit()
         await self._session.refresh(envelope)
@@ -232,10 +271,7 @@ class EnvelopeService:
     async def update_items(self, user: User, set_id: str, items: list[dict]) -> EnvelopeResponse:
         envelope = await self._repo.find_by_user_set(user.id, set_id)
         if envelope is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Set not in your profile",
-            )
+            return await self.add_set_to_profile(user, set_id, items=items)
         catalog_repo = CatalogRepository(self._session)
         s = await catalog_repo.get_by_id(set_id)
         if s is None:

@@ -20,10 +20,21 @@ async def list_envelopes(user: CurrentUser, session: Session):
     return ApiResponse(data=await service.list_envelopes(user.id))
 
 
-@router.post("/sets/{set_id}", response_model=ApiResponse[EnvelopeResponse], status_code=201)
-async def add_set_to_profile(set_id: str, user: CurrentUser, session: Session):
+@router.get("/sets/{set_id}", response_model=ApiResponse[EnvelopeResponse | None])
+async def get_envelope_by_set(set_id: str, user: CurrentUser, session: Session):
     service = EnvelopeService(session)
-    return ApiResponse(data=await service.add_set_to_profile(user, set_id))
+    return ApiResponse(data=await service.get_envelope_by_set(user.id, set_id))
+
+
+@router.post("/sets/{set_id}", response_model=ApiResponse[EnvelopeResponse], status_code=201)
+async def add_set_to_profile(set_id: str, user: CurrentUser, session: Session, body: dict | None = None):
+    service = EnvelopeService(session)
+    scale = None
+    items = None
+    if body:
+        scale = body.get("scale")
+        items = body.get("items")
+    return ApiResponse(data=await service.add_set_to_profile(user, set_id, scale=scale, items=items))
 
 
 @router.delete("/sets/{set_id}", response_model=ApiResponse[None])
