@@ -396,6 +396,14 @@ class ArticleService:
             ]
             await self._repo.add_blocks(blocks)
 
+        if data.photo_ids is not None:
+            upload_svc = UploadService(self._session)
+            uploads = await upload_svc.link_uploads(data.photo_ids, user.id, "article", article_id)
+            existing = len(a.photos or [])
+            for i, u in enumerate(uploads):
+                photo = ArticlePhoto(article_id=article_id, url=u.url, file_name=u.file_name, position=existing + i)
+                self._session.add(photo)
+
         await self._session.commit()
         self._session.expire_all()
         return await self.get_article(article_id)

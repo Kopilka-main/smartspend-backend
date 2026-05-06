@@ -361,6 +361,20 @@ class CatalogService:
             updates["about_title"] = data.about_title
         if data.about_text is not None:
             updates["about_text"] = data.about_text
+        if data.category_id is not None:
+            updates["category_id"] = data.category_id
+        if data.set_type is not None:
+            updates["set_type"] = data.set_type
+        if data.color is not None:
+            updates["color"] = data.color
+        if data.is_private is not None:
+            updates["is_private"] = data.is_private
+        if data.status is not None:
+            updates["status"] = data.status
+        if data.period is not None:
+            updates["period"] = data.period
+        if data.full_cost is not None:
+            updates["full_cost"] = data.full_cost
 
         if updates:
             stmt = sa_update(Set).where(Set.id == set_id).values(**updates)
@@ -393,6 +407,14 @@ class CatalogService:
             total = sum(int(_compute_monthly(i)) for i in (refreshed.items or []))
             stmt = sa_update(Set).where(Set.id == set_id).values(amount=total, amount_label="руб / месяц")
             await self._session.execute(stmt)
+
+        if data.photo_ids is not None:
+            upload_svc = UploadService(self._session)
+            uploads = await upload_svc.link_uploads(data.photo_ids, user.id, "set", set_id)
+            existing = len(s.photos or [])
+            for i, u in enumerate(uploads):
+                photo = SetPhoto(set_id=set_id, url=u.url, file_name=u.file_name, position=existing + i)
+                self._session.add(photo)
 
         await self._session.commit()
         self._session.expire_all()

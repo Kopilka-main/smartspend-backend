@@ -129,7 +129,15 @@ class SetUpdate(CamelModel):
     description: str | None = Field(None, max_length=2000)
     about_title: str | None = Field(None, max_length=200)
     about_text: str | None = None
+    category_id: str | None = Field(None, min_length=1, max_length=20)
+    set_type: str | None = Field(None, max_length=20)
+    color: str | None = Field(None, max_length=7)
+    is_private: bool | None = None
+    status: str | None = Field(None, max_length=20)
+    period: str | None = Field(None, max_length=50)
+    full_cost: int | None = Field(None, ge=0)
     items: list[SetItemCreate] | None = None
+    photo_ids: list[int] | None = None
 
 
 class SetNoteResponse(CamelModel):

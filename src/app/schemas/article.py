@@ -141,6 +141,7 @@ class ArticleUpdate(CamelModel):
     linked_set_id: str | None = None
     linked_set_ids: list[str] | None = None
     blocks: list[ArticleBlockCreate] | None = None
+    photo_ids: list[int] | None = None
 
 
 class ArticleCommentResponse(CamelModel):
