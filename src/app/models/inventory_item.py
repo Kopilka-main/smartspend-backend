@@ -47,6 +47,8 @@ class InventoryItem(Base):
     use_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
     use_period: Mapped[str | None] = mapped_column(String(10), nullable=True)
     purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    base_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    period_years: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

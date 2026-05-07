@@ -47,6 +47,8 @@ class EnvelopeService:
                 wear_life_weeks=i.wear_life_weeks,
                 purchase_date=i.purchase_date,
                 paused=i.paused,
+                base_price=i.base_price,
+                period_years=i.period_years,
             )
             for i in items
         ]
@@ -141,6 +143,8 @@ class EnvelopeService:
                         daily_use=it.get("dailyUse"),
                         last_bought=None,
                         wear_life_weeks=wl_weeks if item_type == "wear" else None,
+                        base_price=int(it["basePrice"]) if it.get("basePrice") is not None else None,
+                        period_years=Decimal(str(it["periodYears"])) if it.get("periodYears") is not None else None,
                     )
                 )
         else:
@@ -163,6 +167,8 @@ class EnvelopeService:
                     daily_use=None,
                     last_bought=None,
                     wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
+                    base_price=int(si.base_price) if si.base_price else None,
+                    period_years=si.period_years,
                 )
                 inv_items.append(inv_item)
 
@@ -285,6 +291,8 @@ class EnvelopeService:
                 daily_use=None,
                 last_bought=None,
                 wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
+                base_price=int(si.base_price) if si.base_price else None,
+                period_years=si.period_years,
             )
             inv_items.append(inv_item)
         if inv_items:
@@ -332,6 +340,8 @@ class EnvelopeService:
                 daily_use=it.get("dailyUse"),
                 last_bought=None,
                 wear_life_weeks=wl_weeks if item_type == "wear" else None,
+                base_price=int(it["basePrice"]) if it.get("basePrice") is not None else None,
+                period_years=Decimal(str(it["periodYears"])) if it.get("periodYears") is not None else None,
             )
             inv_items.append(inv_item)
         if inv_items:

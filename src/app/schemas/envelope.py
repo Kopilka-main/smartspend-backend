@@ -23,6 +23,8 @@ class EnvelopeItemResponse(CamelModel):
     wear_life_weeks: int | None = None
     purchase_date: date | None = None
     paused: bool = False
+    base_price: int | None = None
+    period_years: Decimal | None = None
 
 
 class EnvelopeResponse(CamelModel):
