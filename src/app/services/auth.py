@@ -71,6 +71,8 @@ def _user_to_response(user: User, followers_count: int = 0, has_promo_setup: boo
         followers_count=followers_count,
         has_promo_setup=has_promo_setup,
         password_changed_at=user.password_changed_at or user.joined_at,
+        oauth_provider=user.oauth_provider,
+        has_password=bool(user.password_hash) and user.password_hash != "oauth",
         finance=finance_data,
     )
 
@@ -195,6 +197,19 @@ class AuthService:
         if user is not None:
             token = create_email_token(user.id, "reset-password")
             _fire_and_forget(send_reset_password_email(user.email, token))
+
+    async def set_password(self, user: User, new_password: str) -> None:
+        if user.password_hash and user.password_hash != "oauth":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password already set, use change-password",
+            )
+        await self._repo.update_fields(
+            user.id,
+            password_hash=hash_password(new_password),
+            password_changed_at=datetime.now(UTC),
+        )
+        await self._session.commit()
 
     async def reset_password(self, token: str, new_password: str) -> None:
         user_id = decode_email_token(token, "reset-password")

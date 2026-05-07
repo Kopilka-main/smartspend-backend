@@ -16,6 +16,7 @@ from src.app.schemas.auth import (
     RefreshResponse,
     RegisterRequest,
     ResetPasswordRequest,
+    SetPasswordRequest,
     UserResponse,
     VerifyEmailRequest,
 )
@@ -92,6 +93,13 @@ async def reset_password(body: ResetPasswordRequest, session: Session):
 async def verify_email(body: VerifyEmailRequest, session: Session):
     service = AuthService(session)
     await service.verify_email(body.token)
+    return ApiResponse(data=None)
+
+
+@router.post("/set-password", response_model=ApiResponse[None])
+async def set_password(body: SetPasswordRequest, user: CurrentUser, session: Session):
+    service = AuthService(session)
+    await service.set_password(user, body.password)
     return ApiResponse(data=None)
 
 

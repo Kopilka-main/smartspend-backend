@@ -53,6 +53,8 @@ class UserResponse(CamelModel):
     followers_count: int = 0
     has_promo_setup: bool = False
     password_changed_at: datetime | None = None
+    oauth_provider: str | None = None
+    has_password: bool = True
     finance: UserFinanceInline | None = None
 
 
@@ -86,3 +88,7 @@ class ChangeEmailRequest(CamelModel):
 
 class VerifyEmailRequest(CamelModel):
     token: str
+
+
+class SetPasswordRequest(CamelModel):
+    password: str = Field(min_length=8, max_length=128)
