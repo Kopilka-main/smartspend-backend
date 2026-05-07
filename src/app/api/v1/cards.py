@@ -18,10 +18,12 @@ router = APIRouter(prefix="/cards", tags=["cards"])
 
 
 @router.get("/banks", response_model=ApiResponse[list[str]])
-async def list_card_banks(session: Session):
-    result = await session.execute(
-        sa_select(Card.bank_name).where(Card.is_active.is_(True)).distinct().order_by(Card.bank_name)
-    )
+async def list_card_banks(session: Session, q: str | None = Query(None)):
+    stmt = sa_select(Card.bank_name).where(Card.is_active.is_(True))
+    if q:
+        stmt = stmt.where(Card.bank_name.ilike(f"%{q}%"))
+    stmt = stmt.distinct().order_by(Card.bank_name)
+    result = await session.execute(stmt)
     return ApiResponse(data=[r[0] for r in result.all()])
 
 
