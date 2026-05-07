@@ -1,19 +1,20 @@
 import base64
 import hashlib
 import secrets
+import uuid as _uuid
+from datetime import UTC, datetime, timedelta
 
 import httpx
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.core.config import settings
 from src.app.core.security import create_access_token, create_refresh_token
+from src.app.models.oauth_state import OAuthState
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
 from src.app.schemas.auth import TokenPair
-
-_vk_pkce_store: dict[str, str] = {}
-_link_state_store: dict[str, str] = {}
 
 
 def _build_initials(name: str) -> str:
@@ -36,6 +37,37 @@ def _vk_redirect_uri() -> str:
 
 def _yandex_redirect_uri() -> str:
     return f"{settings.frontend_url.rstrip('/')}/api/v1/auth/callback/yandex"
+
+
+async def _save_state(
+    session: AsyncSession,
+    state: str,
+    provider: str,
+    verifier: str | None = None,
+    link_user_id: str | None = None,
+) -> None:
+    row = OAuthState(
+        state=state,
+        provider=provider,
+        verifier=verifier,
+        link_user_id=_uuid.UUID(link_user_id) if link_user_id else None,
+    )
+    session.add(row)
+    await session.flush()
+    cutoff = datetime.now(UTC) - timedelta(hours=1)
+    await session.execute(sa_delete(OAuthState).where(OAuthState.created_at < cutoff))
+    await session.commit()
+
+
+async def _pop_state(session: AsyncSession, state: str) -> OAuthState | None:
+    if not state:
+        return None
+    row = await session.get(OAuthState, state)
+    if row is None:
+        return None
+    await session.delete(row)
+    await session.flush()
+    return row
 
 
 async def _get_or_create_user(
@@ -80,35 +112,23 @@ async def _get_or_create_user(
     return user
 
 
-def get_yandex_auth_url(link_user_id: str | None = None) -> str:
-    state = ""
-    if link_user_id:
-        state = secrets.token_urlsafe(16)
-        _link_state_store[state] = link_user_id
-        if len(_link_state_store) > 1000:
-            for k in list(_link_state_store.keys())[:500]:
-                _link_state_store.pop(k, None)
+async def get_yandex_auth_url(session: AsyncSession, link_user_id: str | None = None) -> str:
+    state = secrets.token_urlsafe(16)
+    await _save_state(session, state, "yandex", link_user_id=link_user_id)
     url = (
         "https://oauth.yandex.ru/authorize"
         "?response_type=code"
         f"&client_id={settings.yandex_client_id}"
         f"&redirect_uri={_yandex_redirect_uri()}"
+        f"&state={state}"
     )
-    if state:
-        url += f"&state={state}"
     return url
 
 
-def get_vk_auth_url(link_user_id: str | None = None) -> tuple[str, str]:
+async def get_vk_auth_url(session: AsyncSession, link_user_id: str | None = None) -> tuple[str, str]:
     verifier = _generate_code_verifier()
     state = secrets.token_urlsafe(32)
-    _vk_pkce_store[state] = verifier
-    if link_user_id:
-        _link_state_store[state] = link_user_id
-    if len(_vk_pkce_store) > 1000:
-        for k in list(_vk_pkce_store.keys())[:500]:
-            _vk_pkce_store.pop(k, None)
-            _link_state_store.pop(k, None)
+    await _save_state(session, state, "vk", verifier=verifier, link_user_id=link_user_id)
 
     challenge = _generate_code_challenge(verifier)
     url = (
@@ -126,7 +146,8 @@ def get_vk_auth_url(link_user_id: str | None = None) -> tuple[str, str]:
 
 
 async def handle_yandex_callback(code: str, session: AsyncSession, state: str = "") -> tuple[User, TokenPair]:
-    link_user_id = _link_state_store.pop(state, None) if state else None
+    state_row = await _pop_state(session, state)
+    link_user_id = str(state_row.link_user_id) if state_row and state_row.link_user_id else None
 
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
@@ -155,8 +176,6 @@ async def handle_yandex_callback(code: str, session: AsyncSession, state: str = 
     name = info.get("display_name") or info.get("real_name") or "Пользователь"
 
     if link_user_id:
-        import uuid as _uuid
-
         existing_user = await session.get(User, _uuid.UUID(link_user_id))
         if existing_user is None:
             raise ValueError("User not found for linking")
@@ -176,10 +195,11 @@ async def handle_yandex_callback(code: str, session: AsyncSession, state: str = 
 
 
 async def handle_vk_callback(code: str, device_id: str, state: str, session: AsyncSession) -> tuple[User, TokenPair]:
-    verifier = _vk_pkce_store.pop(state, None)
-    if verifier is None:
+    state_row = await _pop_state(session, state)
+    if state_row is None or state_row.verifier is None:
         raise ValueError("Invalid or expired state")
-    link_user_id = _link_state_store.pop(state, None)
+    verifier = state_row.verifier
+    link_user_id = str(state_row.link_user_id) if state_row.link_user_id else None
 
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
@@ -216,8 +236,6 @@ async def handle_vk_callback(code: str, device_id: str, state: str, session: Asy
         name = f"{first} {last}".strip() or "Пользователь"
 
     if link_user_id:
-        import uuid as _uuid
-
         existing_user = await session.get(User, _uuid.UUID(link_user_id))
         if existing_user is None:
             raise ValueError("User not found for linking")

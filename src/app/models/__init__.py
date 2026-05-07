@@ -26,6 +26,7 @@ from src.app.models.inventory_group import InventoryGroup, InventoryGroupCategor
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
 from src.app.models.notification import Notification
 from src.app.models.notification_message import NotificationMessage
+from src.app.models.oauth_state import OAuthState
 from src.app.models.promo import Promo, PromoComment, PromoVote
 from src.app.models.reaction import Reaction
 from src.app.models.saved_set import SavedSet
@@ -63,6 +64,7 @@ __all__ = [
     "NotifType",
     "Notification",
     "NotificationMessage",
+    "OAuthState",
     "Promo",
     "PromoComment",
     "PromoVote",
