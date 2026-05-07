@@ -64,6 +64,19 @@ def _user_to_response(
     providers = (
         oauth_providers if oauth_providers is not None else ([user.oauth_provider] if user.oauth_provider else [])
     )
+    from src.app.schemas.auth import OAuthProviderInfo
+
+    provider_infos: list[OAuthProviderInfo] = []
+    for p in providers:
+        if isinstance(p, OAuthProviderInfo):
+            provider_infos.append(p)
+        elif isinstance(p, dict):
+            provider_infos.append(OAuthProviderInfo(**p))
+        elif isinstance(p, tuple):
+            provider_infos.append(OAuthProviderInfo(provider=p[0], is_primary=bool(p[1])))
+        else:
+            provider_infos.append(OAuthProviderInfo(provider=p, is_primary=False))
+    primary = next((pi.provider for pi in provider_infos if pi.is_primary), None)
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -79,8 +92,8 @@ def _user_to_response(
         followers_count=followers_count,
         has_promo_setup=has_promo_setup,
         password_changed_at=user.password_changed_at or user.joined_at,
-        oauth_provider=providers[0] if providers else None,
-        oauth_providers=providers,
+        oauth_provider=primary,
+        oauth_providers=provider_infos,
         has_password=bool(user.password_hash) and user.password_hash != "oauth",
         finance=finance_data,
     )
@@ -91,11 +104,13 @@ class AuthService:
         self._session = session
         self._repo = UserRepository(session)
 
-    async def _load_oauth_providers(self, user_id: uuid.UUID) -> list[str]:
+    async def _load_oauth_providers(self, user_id: uuid.UUID) -> list[tuple[str, bool]]:
         from src.app.models.user_oauth_link import UserOAuthLink
 
-        result = await self._session.execute(sa_select(UserOAuthLink.provider).where(UserOAuthLink.user_id == user_id))
-        return [row[0] for row in result.all()]
+        result = await self._session.execute(
+            sa_select(UserOAuthLink.provider, UserOAuthLink.is_primary).where(UserOAuthLink.user_id == user_id)
+        )
+        return [(row[0], bool(row[1])) for row in result.all()]
 
     async def register(self, data: RegisterRequest) -> tuple[UserResponse, TokenPair]:
         existing = await self._repo.get_by_email(data.email)
@@ -225,6 +240,23 @@ class AuthService:
             password_hash=hash_password(new_password),
             password_changed_at=datetime.now(UTC),
         )
+        await self._session.commit()
+
+    async def unlink_oauth(self, user: User, provider: str) -> None:
+        from src.app.models.user_oauth_link import UserOAuthLink
+
+        result = await self._session.execute(
+            sa_select(UserOAuthLink).where(UserOAuthLink.user_id == user.id, UserOAuthLink.provider == provider)
+        )
+        link = result.scalar_one_or_none()
+        if link is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not linked")
+        if link.is_primary:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot unlink primary provider",
+            )
+        await self._session.delete(link)
         await self._session.commit()
 
     async def reset_password(self, token: str, new_password: str) -> None:

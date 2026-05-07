@@ -53,11 +53,13 @@ class UserService:
         providers = await self._load_providers(user.id)
         return _user_to_response(user, followers_count=fc, has_promo_setup=has_promo, oauth_providers=providers)
 
-    async def _load_providers(self, user_id) -> list[str]:
+    async def _load_providers(self, user_id) -> list[tuple[str, bool]]:
         from src.app.models.user_oauth_link import UserOAuthLink
 
-        result = await self._session.execute(sa_select(UserOAuthLink.provider).where(UserOAuthLink.user_id == user_id))
-        return [row[0] for row in result.all()]
+        result = await self._session.execute(
+            sa_select(UserOAuthLink.provider, UserOAuthLink.is_primary).where(UserOAuthLink.user_id == user_id)
+        )
+        return [(row[0], bool(row[1])) for row in result.all()]
 
     async def update_profile(self, user: User, data: ProfileUpdate) -> UserResponse:
         updates: dict = {}

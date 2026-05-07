@@ -38,6 +38,11 @@ class UserFinanceInline(CamelModel):
     emo_rate: Decimal = Decimal("0.05")
 
 
+class OAuthProviderInfo(CamelModel):
+    provider: str
+    is_primary: bool = False
+
+
 class UserResponse(CamelModel):
     id: uuid.UUID
     email: str
@@ -54,7 +59,7 @@ class UserResponse(CamelModel):
     has_promo_setup: bool = False
     password_changed_at: datetime | None = None
     oauth_provider: str | None = None
-    oauth_providers: list[str] = []
+    oauth_providers: list[OAuthProviderInfo] = []
     has_password: bool = True
     finance: UserFinanceInline | None = None
 

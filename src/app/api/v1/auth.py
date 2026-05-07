@@ -107,6 +107,13 @@ async def set_password(body: SetPasswordRequest, user: CurrentUser, session: Ses
     return ApiResponse(data=None)
 
 
+@router.delete("/oauth/{provider}", response_model=ApiResponse[None])
+async def unlink_oauth(provider: str, user: CurrentUser, session: Session):
+    service = AuthService(session)
+    await service.unlink_oauth(user, provider)
+    return ApiResponse(data=None)
+
+
 @router.get("/oauth/yandex")
 async def oauth_yandex(session: Session):
     return RedirectResponse(await get_yandex_auth_url(session))

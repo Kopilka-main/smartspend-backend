@@ -106,13 +106,19 @@ async def _get_or_create_user(
     await session.flush()
     finance = UserFinance(user_id=user.id)
     session.add(finance)
-    await _attach_link(session, user.id, provider, oauth_id)
+    await _attach_link(session, user.id, provider, oauth_id, is_primary=True)
     await session.flush()
     await session.refresh(user)
     return user
 
 
-async def _attach_link(session: AsyncSession, user_id: _uuid.UUID, provider: str, oauth_id: str) -> None:
+async def _attach_link(
+    session: AsyncSession,
+    user_id: _uuid.UUID,
+    provider: str,
+    oauth_id: str,
+    is_primary: bool = False,
+) -> None:
     existing = await session.execute(
         select(UserOAuthLink).where(UserOAuthLink.user_id == user_id, UserOAuthLink.provider == provider)
     )
@@ -121,7 +127,7 @@ async def _attach_link(session: AsyncSession, user_id: _uuid.UUID, provider: str
         row.oauth_id = oauth_id
         await session.flush()
         return
-    link = UserOAuthLink(user_id=user_id, provider=provider, oauth_id=oauth_id)
+    link = UserOAuthLink(user_id=user_id, provider=provider, oauth_id=oauth_id, is_primary=is_primary)
     session.add(link)
     await session.flush()
 
