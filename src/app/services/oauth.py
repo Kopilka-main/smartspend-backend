@@ -201,6 +201,7 @@ async def handle_yandex_callback(code: str, session: AsyncSession, state: str = 
             raise ValueError("User not found for linking")
         await _attach_link(session, existing_user.id, "yandex", yandex_id)
         user = existing_user
+        user._was_link = True
     else:
         user = await _get_or_create_user(session, "yandex", yandex_id, email, name)
     await session.commit()
@@ -259,6 +260,7 @@ async def handle_vk_callback(code: str, device_id: str, state: str, session: Asy
             raise ValueError("User not found for linking")
         await _attach_link(session, existing_user.id, "vk", vk_id)
         user = existing_user
+        user._was_link = True
     else:
         user = await _get_or_create_user(session, "vk", vk_id, email, name)
     await session.commit()

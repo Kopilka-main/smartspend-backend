@@ -149,9 +149,11 @@ async def link_vk(session: Session, token: str = Query(...)):
 @router.get("/callback/yandex")
 async def callback_yandex(session: Session, code: str = Query(...), state: str = Query("")):
     try:
-        _, tokens = await handle_yandex_callback(code, session, state=state)
+        user, tokens = await handle_yandex_callback(code, session, state=state)
     except Exception as e:
         return RedirectResponse(f"{settings.frontend_url}/?oauthError=1&message={str(e)[:200]}")
+    if getattr(user, "_was_link", False):
+        return RedirectResponse(f"{settings.frontend_url}/settings?oauthLinked=yandex")
     return RedirectResponse(
         f"{settings.frontend_url}/?oauthSuccess=1&accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
     )
@@ -165,9 +167,11 @@ async def callback_vk(
     state: str = Query(""),
 ):
     try:
-        _, tokens = await handle_vk_callback(code, device_id, state, session)
+        user, tokens = await handle_vk_callback(code, device_id, state, session)
     except Exception as e:
         return RedirectResponse(f"{settings.frontend_url}/?oauthError=1&message={str(e)[:200]}")
+    if getattr(user, "_was_link", False):
+        return RedirectResponse(f"{settings.frontend_url}/settings?oauthLinked=vk")
     return RedirectResponse(
         f"{settings.frontend_url}/?oauthSuccess=1&accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
     )
