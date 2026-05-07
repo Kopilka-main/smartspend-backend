@@ -14,8 +14,9 @@ class RegisterRequest(CamelModel):
 
 
 class LoginRequest(CamelModel):
-    email: EmailStr
-    password: str = Field(min_length=1)
+    email: EmailStr | None = None
+    password: str | None = Field(None, min_length=1)
+    refresh_token: str | None = None
 
 
 class RefreshRequest(CamelModel):

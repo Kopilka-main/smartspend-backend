@@ -104,9 +104,23 @@ class AuthService:
         return _user_to_response(user), tokens
 
     async def login(self, data: LoginRequest) -> tuple[UserResponse, TokenPair]:
-        user = await self._repo.get_by_email(data.email)
-        if user is None or not verify_password(data.password, user.password_hash):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        if data.refresh_token:
+            payload = decode_token(data.refresh_token)
+            if payload is None or payload.get("type") != "refresh":
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+            try:
+                uid = uuid.UUID(payload["sub"])
+            except (KeyError, ValueError) as exc:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload") from exc
+            user = await self._repo.get_by_id(uid)
+            if user is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        else:
+            if not data.email or not data.password:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email and password required")
+            user = await self._repo.get_by_email(data.email)
+            if user is None or not verify_password(data.password, user.password_hash):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
         if user.status == UserStatus.SUSPENDED:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
