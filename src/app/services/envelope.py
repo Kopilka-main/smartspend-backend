@@ -125,6 +125,8 @@ class EnvelopeService:
             for idx, it in enumerate(items):
                 item_type = it.get("itemType") or it.get("type") or "consumable"
                 wl_weeks = it.get("wearLifeWeeks")
+                if wl_weeks is not None:
+                    wl_weeks = int(float(wl_weeks))
                 if wl_weeks is None and it.get("periodYears"):
                     wl_weeks = int(float(it["periodYears"]) * 52)
                 inv_items.append(
@@ -134,7 +136,7 @@ class EnvelopeService:
                         group_id=group_id,
                         type=item_type,
                         name=it.get("name", ""),
-                        price=int(it.get("price", 0) or 0),
+                        price=int(float(it.get("price", 0) or 0)),
                         set_id=set_id,
                         is_extra=True,
                         paused=True,
@@ -143,7 +145,7 @@ class EnvelopeService:
                         daily_use=it.get("dailyUse"),
                         last_bought=None,
                         wear_life_weeks=wl_weeks if item_type == "wear" else None,
-                        base_price=int(it["basePrice"]) if it.get("basePrice") is not None else None,
+                        base_price=int(float(it["basePrice"])) if it.get("basePrice") is not None else None,
                         period_years=Decimal(str(it["periodYears"])) if it.get("periodYears") is not None else None,
                     )
                 )
@@ -323,6 +325,8 @@ class EnvelopeService:
         for idx, it in enumerate(items):
             item_type = it.get("itemType") or it.get("type") or "consumable"
             wl_weeks = it.get("wearLifeWeeks")
+            if wl_weeks is not None:
+                wl_weeks = int(float(wl_weeks))
             if wl_weeks is None and it.get("periodYears"):
                 wl_weeks = int(float(it["periodYears"]) * 52)
             inv_item = InventoryItem(
@@ -331,7 +335,7 @@ class EnvelopeService:
                 group_id=group_id,
                 type=item_type,
                 name=it.get("name", ""),
-                price=int(it.get("price", 0) or 0),
+                price=int(float(it.get("price", 0) or 0)),
                 set_id=set_id,
                 is_extra=True,
                 paused=True,
@@ -340,7 +344,7 @@ class EnvelopeService:
                 daily_use=it.get("dailyUse"),
                 last_bought=None,
                 wear_life_weeks=wl_weeks if item_type == "wear" else None,
-                base_price=int(it["basePrice"]) if it.get("basePrice") is not None else None,
+                base_price=int(float(it["basePrice"])) if it.get("basePrice") is not None else None,
                 period_years=Decimal(str(it["periodYears"])) if it.get("periodYears") is not None else None,
             )
             inv_items.append(inv_item)
