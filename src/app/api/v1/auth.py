@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select as sa_select
 
@@ -114,9 +114,30 @@ async def oauth_vk():
     return RedirectResponse(url)
 
 
+@router.get("/link/yandex")
+async def link_yandex(token: str = Query(...)):
+    from src.app.core.security import decode_token
+
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    return RedirectResponse(get_yandex_auth_url(link_user_id=payload["sub"]))
+
+
+@router.get("/link/vk")
+async def link_vk(token: str = Query(...)):
+    from src.app.core.security import decode_token
+
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    url, _state = get_vk_auth_url(link_user_id=payload["sub"])
+    return RedirectResponse(url)
+
+
 @router.get("/callback/yandex")
-async def callback_yandex(session: Session, code: str = Query(...)):
-    _, tokens = await handle_yandex_callback(code, session)
+async def callback_yandex(session: Session, code: str = Query(...), state: str = Query("")):
+    _, tokens = await handle_yandex_callback(code, session, state=state)
     return RedirectResponse(
         f"{settings.frontend_url}/?oauthSuccess=1&accessToken={tokens.access_token}&refreshToken={tokens.refresh_token}"
     )

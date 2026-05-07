@@ -13,6 +13,7 @@ from src.app.models.user_finance import UserFinance
 from src.app.schemas.auth import TokenPair
 
 _vk_pkce_store: dict[str, str] = {}
+_link_state_store: dict[str, str] = {}
 
 
 def _build_initials(name: str) -> str:
@@ -79,22 +80,35 @@ async def _get_or_create_user(
     return user
 
 
-def get_yandex_auth_url() -> str:
-    return (
+def get_yandex_auth_url(link_user_id: str | None = None) -> str:
+    state = ""
+    if link_user_id:
+        state = secrets.token_urlsafe(16)
+        _link_state_store[state] = link_user_id
+        if len(_link_state_store) > 1000:
+            for k in list(_link_state_store.keys())[:500]:
+                _link_state_store.pop(k, None)
+    url = (
         "https://oauth.yandex.ru/authorize"
         "?response_type=code"
         f"&client_id={settings.yandex_client_id}"
         f"&redirect_uri={_yandex_redirect_uri()}"
     )
+    if state:
+        url += f"&state={state}"
+    return url
 
 
-def get_vk_auth_url() -> tuple[str, str]:
+def get_vk_auth_url(link_user_id: str | None = None) -> tuple[str, str]:
     verifier = _generate_code_verifier()
     state = secrets.token_urlsafe(32)
     _vk_pkce_store[state] = verifier
+    if link_user_id:
+        _link_state_store[state] = link_user_id
     if len(_vk_pkce_store) > 1000:
         for k in list(_vk_pkce_store.keys())[:500]:
             _vk_pkce_store.pop(k, None)
+            _link_state_store.pop(k, None)
 
     challenge = _generate_code_challenge(verifier)
     url = (
@@ -111,7 +125,9 @@ def get_vk_auth_url() -> tuple[str, str]:
     return url, state
 
 
-async def handle_yandex_callback(code: str, session: AsyncSession) -> tuple[User, TokenPair]:
+async def handle_yandex_callback(code: str, session: AsyncSession, state: str = "") -> tuple[User, TokenPair]:
+    link_user_id = _link_state_store.pop(state, None) if state else None
+
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
             "https://oauth.yandex.ru/token",
@@ -138,7 +154,18 @@ async def handle_yandex_callback(code: str, session: AsyncSession) -> tuple[User
     email = info.get("default_email")
     name = info.get("display_name") or info.get("real_name") or "Пользователь"
 
-    user = await _get_or_create_user(session, "yandex", yandex_id, email, name)
+    if link_user_id:
+        import uuid as _uuid
+
+        existing_user = await session.get(User, _uuid.UUID(link_user_id))
+        if existing_user is None:
+            raise ValueError("User not found for linking")
+        existing_user.oauth_provider = "yandex"
+        existing_user.oauth_id = yandex_id
+        await session.flush()
+        user = existing_user
+    else:
+        user = await _get_or_create_user(session, "yandex", yandex_id, email, name)
     await session.commit()
 
     tokens = TokenPair(
@@ -152,6 +179,7 @@ async def handle_vk_callback(code: str, device_id: str, state: str, session: Asy
     verifier = _vk_pkce_store.pop(state, None)
     if verifier is None:
         raise ValueError("Invalid or expired state")
+    link_user_id = _link_state_store.pop(state, None)
 
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
@@ -187,7 +215,18 @@ async def handle_vk_callback(code: str, device_id: str, state: str, session: Asy
         email = vk_user.get("email")
         name = f"{first} {last}".strip() or "Пользователь"
 
-    user = await _get_or_create_user(session, "vk", vk_id, email, name)
+    if link_user_id:
+        import uuid as _uuid
+
+        existing_user = await session.get(User, _uuid.UUID(link_user_id))
+        if existing_user is None:
+            raise ValueError("User not found for linking")
+        existing_user.oauth_provider = "vk"
+        existing_user.oauth_id = vk_id
+        await session.flush()
+        user = existing_user
+    else:
+        user = await _get_or_create_user(session, "vk", vk_id, email, name)
     await session.commit()
 
     tokens = TokenPair(
