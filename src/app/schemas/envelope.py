@@ -25,6 +25,8 @@ class EnvelopeItemResponse(CamelModel):
     paused: bool = False
     base_price: int | None = None
     period_years: Decimal | None = None
+    period: Decimal | None = None
+    monthly_cost: Decimal = Decimal("0")
 
 
 class EnvelopeResponse(CamelModel):

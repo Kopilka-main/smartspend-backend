@@ -49,9 +49,36 @@ class EnvelopeService:
                 paused=i.paused,
                 base_price=i.base_price,
                 period_years=i.period_years,
+                period=i.period_years,
+                monthly_cost=self._compute_monthly_cost(i),
             )
             for i in items
         ]
+
+    @staticmethod
+    def _compute_monthly_cost(item) -> Decimal:
+        price = Decimal(item.price or 0)
+        if item.type == "consumable":
+            daily = item.daily_use or Decimal(0)
+            qty = item.qty or Decimal(0)
+            if daily > 0 and qty > 0 and price > 0:
+                days_supply = qty / daily
+                if days_supply > 0:
+                    return round(price / (days_supply / Decimal("30.44")), 2)
+            bp = Decimal(item.base_price or 0)
+            py = item.period_years or Decimal(0)
+            if bp > 0 and py > 0:
+                q = qty if qty > 0 else Decimal(1)
+                return round((bp * q) / (py * 12), 2)
+            return Decimal(0)
+        bp = Decimal(item.base_price or 0)
+        py = item.period_years or Decimal(0)
+        if bp > 0 and py > 0:
+            return round(bp / (py * 12), 2)
+        if item.wear_life_weeks and item.wear_life_weeks > 0 and price > 0:
+            wear_days = Decimal(item.wear_life_weeks * 7)
+            return round(price / wear_days * Decimal("30.44"), 2)
+        return Decimal(0)
 
     async def list_envelopes(self, user_id: uuid.UUID) -> list[EnvelopeResponse]:
         rows = await self._repo.list_by_user(user_id)
