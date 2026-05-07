@@ -14,6 +14,7 @@ from src.app.core.security import create_access_token, create_refresh_token
 from src.app.models.oauth_state import OAuthState
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
+from src.app.models.user_oauth_link import UserOAuthLink
 from src.app.schemas.auth import TokenPair
 
 
@@ -77,21 +78,19 @@ async def _get_or_create_user(
     email: str | None,
     display_name: str,
 ) -> User:
-    stmt = select(User).where(User.oauth_provider == provider, User.oauth_id == oauth_id)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if user is not None:
-        return user
+    link_stmt = select(UserOAuthLink).where(UserOAuthLink.provider == provider, UserOAuthLink.oauth_id == oauth_id)
+    link = (await session.execute(link_stmt)).scalar_one_or_none()
+    if link is not None:
+        user = await session.get(User, link.user_id)
+        if user is not None:
+            return user
 
     if email:
         stmt = select(User).where(User.email == email)
         result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         if user is not None:
-            user.oauth_provider = provider
-            user.oauth_id = oauth_id
-            await session.flush()
+            await _attach_link(session, user.id, provider, oauth_id)
             return user
 
     fake_email = email or f"{provider}_{oauth_id}@oauth.smartspend"
@@ -107,9 +106,24 @@ async def _get_or_create_user(
     await session.flush()
     finance = UserFinance(user_id=user.id)
     session.add(finance)
+    await _attach_link(session, user.id, provider, oauth_id)
     await session.flush()
     await session.refresh(user)
     return user
+
+
+async def _attach_link(session: AsyncSession, user_id: _uuid.UUID, provider: str, oauth_id: str) -> None:
+    existing = await session.execute(
+        select(UserOAuthLink).where(UserOAuthLink.user_id == user_id, UserOAuthLink.provider == provider)
+    )
+    row = existing.scalar_one_or_none()
+    if row is not None:
+        row.oauth_id = oauth_id
+        await session.flush()
+        return
+    link = UserOAuthLink(user_id=user_id, provider=provider, oauth_id=oauth_id)
+    session.add(link)
+    await session.flush()
 
 
 async def get_yandex_auth_url(session: AsyncSession, link_user_id: str | None = None) -> str:
@@ -179,9 +193,7 @@ async def handle_yandex_callback(code: str, session: AsyncSession, state: str = 
         existing_user = await session.get(User, _uuid.UUID(link_user_id))
         if existing_user is None:
             raise ValueError("User not found for linking")
-        existing_user.oauth_provider = "yandex"
-        existing_user.oauth_id = yandex_id
-        await session.flush()
+        await _attach_link(session, existing_user.id, "yandex", yandex_id)
         user = existing_user
     else:
         user = await _get_or_create_user(session, "yandex", yandex_id, email, name)
@@ -239,9 +251,7 @@ async def handle_vk_callback(code: str, device_id: str, state: str, session: Asy
         existing_user = await session.get(User, _uuid.UUID(link_user_id))
         if existing_user is None:
             raise ValueError("User not found for linking")
-        existing_user.oauth_provider = "vk"
-        existing_user.oauth_id = vk_id
-        await session.flush()
+        await _attach_link(session, existing_user.id, "vk", vk_id)
         user = existing_user
     else:
         user = await _get_or_create_user(session, "vk", vk_id, email, name)

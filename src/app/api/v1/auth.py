@@ -58,7 +58,11 @@ async def me(user: CurrentUser, session: Session):
     fc = await FollowRepository(session).count_followers(user.id)
     uc_result = await session.execute(sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1))
     has_promo = uc_result.scalar_one_or_none() is not None
-    return ApiResponse(data=_user_to_response(user, followers_count=fc, has_promo_setup=has_promo))
+    svc = AuthService(session)
+    providers = await svc._load_oauth_providers(user.id)
+    return ApiResponse(
+        data=_user_to_response(user, followers_count=fc, has_promo_setup=has_promo, oauth_providers=providers)
+    )
 
 
 @router.post("/change-password", response_model=ApiResponse[None])

@@ -45,7 +45,12 @@ def _build_initials(display_name: str) -> str:
     return "".join(p[0] for p in parts if p)[:2].upper() or "??"
 
 
-def _user_to_response(user: User, followers_count: int = 0, has_promo_setup: bool = False) -> UserResponse:
+def _user_to_response(
+    user: User,
+    followers_count: int = 0,
+    has_promo_setup: bool = False,
+    oauth_providers: list[str] | None = None,
+) -> UserResponse:
     finance_data = None
     if user.finance:
         finance_data = UserFinanceInline(
@@ -56,6 +61,9 @@ def _user_to_response(user: User, followers_count: int = 0, has_promo_setup: boo
             capital=user.finance.capital,
             emo_rate=user.finance.emo_rate,
         )
+    providers = (
+        oauth_providers if oauth_providers is not None else ([user.oauth_provider] if user.oauth_provider else [])
+    )
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -71,7 +79,8 @@ def _user_to_response(user: User, followers_count: int = 0, has_promo_setup: boo
         followers_count=followers_count,
         has_promo_setup=has_promo_setup,
         password_changed_at=user.password_changed_at or user.joined_at,
-        oauth_provider=user.oauth_provider,
+        oauth_provider=providers[0] if providers else None,
+        oauth_providers=providers,
         has_password=bool(user.password_hash) and user.password_hash != "oauth",
         finance=finance_data,
     )
@@ -81,6 +90,12 @@ class AuthService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._repo = UserRepository(session)
+
+    async def _load_oauth_providers(self, user_id: uuid.UUID) -> list[str]:
+        from src.app.models.user_oauth_link import UserOAuthLink
+
+        result = await self._session.execute(sa_select(UserOAuthLink.provider).where(UserOAuthLink.user_id == user_id))
+        return [row[0] for row in result.all()]
 
     async def register(self, data: RegisterRequest) -> tuple[UserResponse, TokenPair]:
         existing = await self._repo.get_by_email(data.email)
@@ -138,8 +153,9 @@ class AuthService:
             sa_select(UserCompany.id).where(UserCompany.user_id == user.id).limit(1)
         )
         has_promo = uc_result.scalar_one_or_none() is not None
+        providers = await self._load_oauth_providers(user.id)
 
-        return _user_to_response(user, followers_count=fc, has_promo_setup=has_promo), tokens
+        return _user_to_response(user, followers_count=fc, has_promo_setup=has_promo, oauth_providers=providers), tokens
 
     async def refresh(self, refresh_token: str) -> TokenPair:
         payload = decode_token(refresh_token)

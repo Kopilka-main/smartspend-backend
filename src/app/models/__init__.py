@@ -37,6 +37,7 @@ from src.app.models.set_photo import SetPhoto
 from src.app.models.upload import Upload
 from src.app.models.user import User
 from src.app.models.user_finance import UserFinance
+from src.app.models.user_oauth_link import UserOAuthLink
 
 __all__ = [
     "Article",
@@ -84,5 +85,6 @@ __all__ = [
     "UserCard",
     "UserCompany",
     "UserFinance",
+    "UserOAuthLink",
     "UserStatus",
 ]

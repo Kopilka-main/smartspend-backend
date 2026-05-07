@@ -54,6 +54,7 @@ class UserResponse(CamelModel):
     has_promo_setup: bool = False
     password_changed_at: datetime | None = None
     oauth_provider: str | None = None
+    oauth_providers: list[str] = []
     has_password: bool = True
     finance: UserFinanceInline | None = None
 
