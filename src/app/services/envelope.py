@@ -15,7 +15,7 @@ from src.app.models.user import User
 from src.app.repositories.catalog import CatalogRepository
 from src.app.repositories.envelope import EnvelopeRepository
 from src.app.repositories.inventory import InventoryRepository
-from src.app.schemas.envelope import EnvelopeCategoryResponse, EnvelopeResponse
+from src.app.schemas.envelope import EnvelopeCategoryResponse, EnvelopeItemResponse, EnvelopeResponse
 
 
 class EnvelopeService:
@@ -27,12 +27,37 @@ class EnvelopeService:
         cats = await self._repo.list_categories()
         return [EnvelopeCategoryResponse.model_validate(c) for c in cats]
 
+    async def _load_items(self, user_id: uuid.UUID, set_id: str) -> list[EnvelopeItemResponse]:
+        stmt = (
+            select(InventoryItem)
+            .where(InventoryItem.user_id == user_id, InventoryItem.set_id == set_id)
+            .order_by(InventoryItem.created_at)
+        )
+        result = await self._session.execute(stmt)
+        items = result.scalars().all()
+        return [
+            EnvelopeItemResponse(
+                id=i.id,
+                name=i.name,
+                item_type=i.type,
+                price=i.price or 0,
+                qty=i.qty,
+                unit=i.unit,
+                daily_use=i.daily_use,
+                wear_life_weeks=i.wear_life_weeks,
+                purchase_date=i.purchase_date,
+                paused=i.paused,
+            )
+            for i in items
+        ]
+
     async def list_envelopes(self, user_id: uuid.UUID) -> list[EnvelopeResponse]:
         rows = await self._repo.list_by_user(user_id)
         result = []
         for e, source in rows:
             paused = await self._check_all_paused(user_id, e.set_id)
-            result.append(EnvelopeResponse.from_orm_obj(e, source=source, paused=paused))
+            items = await self._load_items(user_id, e.set_id)
+            result.append(EnvelopeResponse.from_orm_obj(e, source=source, paused=paused, items=items))
         return result
 
     async def get_envelope_by_set(self, user_id: uuid.UUID, set_id: str) -> EnvelopeResponse | None:
@@ -42,7 +67,8 @@ class EnvelopeService:
         catalog_repo = CatalogRepository(self._session)
         s = await catalog_repo.get_by_id(set_id)
         paused = await self._check_all_paused(user_id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused)
+        items = await self._load_items(user_id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused, items=items)
 
     async def add_set_to_profile(
         self,
@@ -147,7 +173,8 @@ class EnvelopeService:
         await self._session.execute(stmt)
         await self._session.commit()
         paused = await self._check_all_paused(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused)
+        items_resp = await self._load_items(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
         envelope = await self._repo.find_by_user_set(user.id, set_id)
@@ -218,7 +245,8 @@ class EnvelopeService:
         paused = await self._check_all_paused(user.id, set_id)
         catalog_repo = CatalogRepository(self._session)
         s = await catalog_repo.get_by_id(set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused)
+        items_resp = await self._load_items(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused, items=items_resp)
 
     async def reset_envelope(self, user: User, set_id: str) -> EnvelopeResponse:
         envelope = await self._repo.find_by_user_set(user.id, set_id)
@@ -266,7 +294,8 @@ class EnvelopeService:
         await self._session.commit()
         await self._session.refresh(envelope)
         paused = await self._check_all_paused(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused)
+        items_resp = await self._load_items(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
 
     async def update_items(self, user: User, set_id: str, items: list[dict]) -> EnvelopeResponse:
         envelope = await self._repo.find_by_user_set(user.id, set_id)
@@ -314,4 +343,5 @@ class EnvelopeService:
         await self._session.commit()
         await self._session.refresh(envelope)
         paused = await self._check_all_paused(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused)
+        items_resp = await self._load_items(user.id, set_id)
+        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import Field
@@ -10,6 +10,19 @@ class EnvelopeCategoryResponse(CamelModel):
     id: str
     name: str
     color: str
+
+
+class EnvelopeItemResponse(CamelModel):
+    id: str
+    name: str
+    item_type: str
+    price: int = 0
+    qty: Decimal | None = None
+    unit: str | None = None
+    daily_use: Decimal | None = None
+    wear_life_weeks: int | None = None
+    purchase_date: date | None = None
+    paused: bool = False
 
 
 class EnvelopeResponse(CamelModel):
@@ -25,11 +38,18 @@ class EnvelopeResponse(CamelModel):
     period: str | None = None
     paused: bool = False
     scale: Decimal = Decimal("1.00")
+    items: list[EnvelopeItemResponse] = []
     created_at: datetime
     updated_at: datetime
 
     @classmethod
-    def from_orm_obj(cls, e, source: str | None = None, paused: bool = False) -> "EnvelopeResponse":
+    def from_orm_obj(
+        cls,
+        e,
+        source: str | None = None,
+        paused: bool = False,
+        items: list[EnvelopeItemResponse] | None = None,
+    ) -> "EnvelopeResponse":
         return cls(
             id=e.id,
             user_id=str(e.user_id),
@@ -43,6 +63,7 @@ class EnvelopeResponse(CamelModel):
             period=e.period,
             paused=paused,
             scale=e.scale if e.scale is not None else Decimal("1.00"),
+            items=items or [],
             created_at=e.created_at,
             updated_at=e.updated_at,
         )
