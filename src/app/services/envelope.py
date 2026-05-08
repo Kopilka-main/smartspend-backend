@@ -102,7 +102,7 @@ class EnvelopeService:
     async def _clone_set_for_user(self, original: Set, user: User) -> Set:
         from src.app.models.set import SetItem
 
-        new_id = f"us_{user.id.hex[:8]}_{original.id}_{int(time.time())}"[:20]
+        new_id = f"c_{uuid.uuid4().hex[:16]}"[:20]
         clone = Set(
             id=new_id,
             source="own",
