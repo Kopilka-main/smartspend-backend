@@ -119,6 +119,13 @@ async def _attach_link(
     oauth_id: str,
     is_primary: bool = False,
 ) -> None:
+    by_oauth = await session.execute(
+        select(UserOAuthLink).where(UserOAuthLink.provider == provider, UserOAuthLink.oauth_id == oauth_id)
+    )
+    other_link = by_oauth.scalar_one_or_none()
+    if other_link is not None and other_link.user_id != user_id:
+        raise ValueError(f"Этот {provider}-аккаунт уже привязан к другому пользователю")
+
     existing = await session.execute(
         select(UserOAuthLink).where(UserOAuthLink.user_id == user_id, UserOAuthLink.provider == provider)
     )
