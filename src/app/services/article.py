@@ -199,20 +199,10 @@ class ArticleService:
     async def _enrich_article(self, a, sets_map, sets_raw, cats_map):
         set_title = sets_map[a.linked_set_id].title if a.linked_set_id and a.linked_set_id in sets_map else None
         cat_name = cats_map.get(a.category_id) if a.category_id else None
-
-        seen: set[str] = set()
-        merged_ids: list[str] = []
-        if a.linked_set_id:
-            seen.add(a.linked_set_id)
-            merged_ids.append(a.linked_set_id)
-        for sid in a.linked_set_ids or []:
-            if sid not in seen:
-                seen.add(sid)
-                merged_ids.append(sid)
-        linked = [sets_map[sid] for sid in merged_ids if sid in sets_map]
+        linked = [sets_map[sid] for sid in (a.linked_set_ids or []) if sid in sets_map]
 
         set_link = None
-        primary_set_id = merged_ids[0] if merged_ids else None
+        primary_set_id = a.linked_set_id or (a.linked_set_ids[0] if a.linked_set_ids else None)
         if primary_set_id and primary_set_id in sets_raw:
             s = sets_raw[primary_set_id]
             set_link = SetLinkCard(
