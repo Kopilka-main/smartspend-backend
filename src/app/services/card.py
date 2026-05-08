@@ -97,9 +97,9 @@ class CardService:
         if sort == "cashback" and spending:
             items.sort(key=lambda x: x.calc_cashback or 0, reverse=True)
         elif sort == "grace":
-            items.sort(key=lambda x: x.grace_days, reverse=True)
+            items.sort(key=lambda x: x.grace_days or 0, reverse=True)
         elif sort == "cashback_grace" and spending:
-            items.sort(key=lambda x: (x.calc_cashback or 0) * 100 + x.grace_days, reverse=True)
+            items.sort(key=lambda x: (x.calc_cashback or 0, x.grace_days or 0), reverse=True)
         else:
             items.sort(key=lambda x: x.bank_name)
 

@@ -19,6 +19,7 @@ from src.app.models.set_photo import SetPhoto
 from src.app.models.user import User
 from src.app.repositories.catalog import CatalogRepository
 from src.app.schemas.catalog import (
+    ParentSetInfo,
     SetCommentCreate,
     SetCommentResponse,
     SetCreate,
@@ -100,7 +101,11 @@ def _author_info(user) -> AuthorInfo | None:
 
 
 def _set_to_response(
-    s: Set, category_name: str | None = None, comments_count: int = 0, reactions: list[ReactionCount] | None = None
+    s: Set,
+    category_name: str | None = None,
+    comments_count: int = 0,
+    reactions: list[ReactionCount] | None = None,
+    parent_set: ParentSetInfo | None = None,
 ) -> SetResponse:
     items = [
         SetItemResponse(
@@ -154,6 +159,7 @@ def _set_to_response(
         photos=photos,
         reactions=reactions or [],
         author=_author_info(s.author),
+        parent_set=parent_set,
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
@@ -274,7 +280,21 @@ class CatalogService:
         reaction_repo = ReactionRepository(self._session)
         raw = await reaction_repo.count_grouped("set", set_id)
         rr = [ReactionCount(emoji=e, count=c) for e, c in raw]
-        return _set_to_response(s, category_name=cats.get(s.category_id), comments_count=cc, reactions=rr)
+
+        parent_info: ParentSetInfo | None = None
+        if s.parent_set_id:
+            parent = await self._repo.get_by_id(s.parent_set_id)
+            if parent is not None:
+                parent_info = ParentSetInfo(
+                    id=parent.id,
+                    title=parent.title,
+                    source=parent.source,
+                    author=_author_info(parent.author),
+                )
+
+        return _set_to_response(
+            s, category_name=cats.get(s.category_id), comments_count=cc, reactions=rr, parent_set=parent_info
+        )
 
     async def create_set(self, user: User, data: SetCreate) -> SetResponse:
         set_id = f"u_{int(time.time() * 1000)}"

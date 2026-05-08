@@ -99,6 +99,57 @@ class EnvelopeService:
         items = await self._load_items(user_id, set_id)
         return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused, items=items)
 
+    async def _clone_set_for_user(self, original: Set, user: User) -> Set:
+        from src.app.models.set import SetItem
+
+        new_id = f"us_{user.id.hex[:8]}_{original.id}_{int(time.time())}"[:20]
+        clone = Set(
+            id=new_id,
+            source="own",
+            category_id=original.category_id,
+            set_type=original.set_type,
+            color=original.color,
+            title=original.title,
+            description=original.description,
+            amount=original.amount,
+            amount_label=original.amount_label,
+            users_count=0,
+            added=None,
+            is_private=True,
+            hidden=False,
+            author_id=user.id,
+            parent_set_id=original.id,
+            about_title=original.about_title,
+            about_text=original.about_text,
+            status="published",
+            period=original.period,
+            full_cost=original.full_cost,
+            monthly=original.monthly,
+        )
+        self._session.add(clone)
+        await self._session.flush()
+
+        for si in original.items or []:
+            copy = SetItem(
+                set_id=new_id,
+                name=si.name,
+                note=si.note,
+                item_type=si.item_type,
+                price=si.price,
+                qty=si.qty,
+                unit=si.unit,
+                daily_use=si.daily_use,
+                wear_life_weeks=si.wear_life_weeks,
+                purchase_date=si.purchase_date,
+                planned_price=si.planned_price,
+                base_price=si.base_price,
+                period_years=si.period_years,
+            )
+            self._session.add(copy)
+        await self._session.flush()
+        await self._session.refresh(clone, attribute_names=["items"])
+        return clone
+
     async def add_set_to_profile(
         self,
         user: User,
@@ -106,19 +157,25 @@ class EnvelopeService:
         scale: float | str | None = None,
         items: list[dict] | None = None,
     ) -> EnvelopeResponse:
+        catalog_repo = CatalogRepository(self._session)
+        original = await catalog_repo.get_by_id(set_id)
+        if original is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Set not found",
+            )
+
+        if original.source == "community" or original.author_id != user.id:
+            s = await self._clone_set_for_user(original, user)
+            set_id = s.id
+        else:
+            s = original
+
         existing = await self._repo.find_by_user_set(user.id, set_id)
         if existing is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Set already added to profile",
-            )
-
-        catalog_repo = CatalogRepository(self._session)
-        s = await catalog_repo.get_by_id(set_id)
-        if s is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Set not found",
             )
 
         total_amount = 0
@@ -204,7 +261,8 @@ class EnvelopeService:
         if inv_items:
             await inv_repo.bulk_create(inv_items)
 
-        stmt = sa_update(Set).where(Set.id == set_id).values(users_count=Set.users_count + 1)
+        parent_id = s.parent_set_id or s.id
+        stmt = sa_update(Set).where(Set.id == parent_id).values(users_count=Set.users_count + 1)
         await self._session.execute(stmt)
         await self._session.commit()
         paused = await self._check_all_paused(user.id, set_id)
@@ -224,8 +282,14 @@ class EnvelopeService:
 
         await self._repo.delete_by_user_set(user.id, set_id)
 
-        stmt = sa_update(Set).where(Set.id == set_id).values(users_count=func.greatest(0, Set.users_count - 1))
+        s = await self._session.get(Set, set_id)
+        parent_id = (s.parent_set_id if s and s.parent_set_id else set_id) if s else set_id
+        stmt = sa_update(Set).where(Set.id == parent_id).values(users_count=func.greatest(0, Set.users_count - 1))
         await self._session.execute(stmt)
+
+        if s is not None and s.parent_set_id is not None and s.author_id == user.id:
+            await self._session.delete(s)
+
         await self._session.commit()
 
     async def delete_envelope(self, envelope_id: int, user_id: uuid.UUID) -> None:

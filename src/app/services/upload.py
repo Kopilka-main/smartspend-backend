@@ -23,11 +23,17 @@ class UploadService:
 
     async def upload(self, user_id: uuid.UUID, file: UploadFile) -> UploadResponse:
         if file.content_type not in ALLOWED_TYPES:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image type")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Неподдерживаемый формат. Разрешены: JPEG, PNG, WEBP, GIF",
+            )
 
         content = await file.read()
         if len(content) > MAX_SIZE:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 5 MB)")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Файл слишком большой (максимум 5 МБ)",
+            )
 
         ext = Path(file.filename or "photo.jpg").suffix or ".jpg"
         unique_name = f"{user_id}_{int(time.time() * 1000)}{ext}"

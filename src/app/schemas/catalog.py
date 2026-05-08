@@ -49,6 +49,13 @@ class SetPhotoResponse(CamelModel):
     created_at: datetime
 
 
+class ParentSetInfo(CamelModel):
+    id: str
+    title: str
+    source: str
+    author: AuthorInfo | None = None
+
+
 class SetResponse(CamelModel):
     id: str
     source: str
@@ -77,6 +84,7 @@ class SetResponse(CamelModel):
     photos: list[SetPhotoResponse] = []
     reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
+    parent_set: ParentSetInfo | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -105,6 +113,7 @@ class SetListItem(CamelModel):
     tags: list[str] = []
     reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
+    parent_set: ParentSetInfo | None = None
     created_at: datetime
 
 

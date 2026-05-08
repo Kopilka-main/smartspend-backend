@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.app.models.article import Article
+from src.app.models.article_read import ArticleRead
 from src.app.models.envelope import Envelope
 from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.follow import Follow
@@ -107,6 +108,15 @@ class FeedService:
             if a.category_id:
                 cat_ids.add(a.category_id)
 
+        read_ids: set[str] = set()
+        if user_id and articles:
+            reads = await self._session.execute(
+                select(ArticleRead.article_id).where(
+                    ArticleRead.user_id == user_id, ArticleRead.article_id.in_([a.id for a in articles])
+                )
+            )
+            read_ids = {r[0] for r in reads.all()}
+
         sets_map: dict[str, tuple[str, str]] = {}
         if set_ids:
             st = await self._session.execute(select(Set.id, Set.title, Set.color).where(Set.id.in_(set_ids)))
@@ -148,6 +158,7 @@ class FeedService:
                     if a.linked_set_id and a.linked_set_id in sets_map
                     else None,
                     set_link=set_link,
+                    is_read=a.id in read_ids,
                 )
             )
         return items, total

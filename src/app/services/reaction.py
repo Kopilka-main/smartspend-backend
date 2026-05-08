@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import HTTPException, status
@@ -13,6 +14,8 @@ from src.app.models.set_comment import SetComment
 from src.app.repositories.reaction import ReactionRepository
 from src.app.schemas.reaction import ReactionCreate, ReactionResponse
 
+logger = logging.getLogger(__name__)
+
 VALID_TARGETS = {t.value for t in ReactionTarget}
 LIKE_DISLIKE = {"like", "dislike"}
 
@@ -23,6 +26,13 @@ class ReactionService:
         self._repo = ReactionRepository(session)
 
     async def toggle_reaction(self, user_id: uuid.UUID, data: ReactionCreate) -> ReactionResponse | None:
+        logger.info(
+            "reaction.toggle: user=%s target_type=%s target_id=%s type=%s",
+            user_id,
+            data.target_type,
+            data.target_id,
+            data.type,
+        )
         if data.target_type not in VALID_TARGETS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -82,6 +92,13 @@ class ReactionService:
     async def _sync_counts(self, target_type: str, target_id: str) -> None:
         likes = await self._repo.count(target_type, target_id, "like")
         dislikes = await self._repo.count(target_type, target_id, "dislike")
+        logger.info(
+            "reaction.sync: target_type=%s target_id=%s likes=%d dislikes=%d",
+            target_type,
+            target_id,
+            likes,
+            dislikes,
+        )
 
         if target_type == "article":
             stmt = sa_update(Article).where(Article.id == target_id).values(likes_count=likes, dislikes_count=dislikes)
@@ -95,9 +112,11 @@ class ReactionService:
             try:
                 comment_id = int(target_id)
             except ValueError:
+                logger.warning("reaction.sync comment: non-int target_id=%s", target_id)
                 return
             ac = await self._session.get(ArticleComment, comment_id)
             if ac:
+                logger.info("reaction.sync comment=%d matched ArticleComment", comment_id)
                 stmt = (
                     sa_update(ArticleComment)
                     .where(ArticleComment.id == comment_id)
@@ -107,6 +126,7 @@ class ReactionService:
             else:
                 sc = await self._session.get(SetComment, comment_id)
                 if sc:
+                    logger.info("reaction.sync comment=%d matched SetComment", comment_id)
                     stmt = (
                         sa_update(SetComment)
                         .where(SetComment.id == comment_id)
@@ -116,6 +136,7 @@ class ReactionService:
                 else:
                     pc = await self._session.get(PromoComment, comment_id)
                     if pc:
+                        logger.info("reaction.sync comment=%d matched PromoComment", comment_id)
                         stmt = (
                             sa_update(PromoComment)
                             .where(PromoComment.id == comment_id)
@@ -125,9 +146,12 @@ class ReactionService:
                     else:
                         dc = await self._session.get(DepositComment, comment_id)
                         if dc:
+                            logger.info("reaction.sync comment=%d matched DepositComment", comment_id)
                             stmt = (
                                 sa_update(DepositComment)
                                 .where(DepositComment.id == comment_id)
                                 .values(likes_count=likes, dislikes_count=dislikes)
                             )
                             await self._session.execute(stmt)
+                        else:
+                            logger.warning("reaction.sync comment=%d not found in any table", comment_id)
