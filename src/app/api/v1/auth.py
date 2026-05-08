@@ -1,3 +1,6 @@
+import logging
+import traceback
+
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select as sa_select
@@ -23,6 +26,8 @@ from src.app.schemas.auth import (
 from src.app.schemas.base import ApiResponse
 from src.app.services.auth import AuthService, _user_to_response
 from src.app.services.oauth import get_vk_auth_url, get_yandex_auth_url, handle_vk_callback, handle_yandex_callback
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -151,6 +156,7 @@ async def callback_yandex(session: Session, code: str = Query(...), state: str =
     try:
         user, tokens = await handle_yandex_callback(code, session, state=state)
     except Exception as e:
+        logger.error("Yandex callback failed: %s\n%s", e, traceback.format_exc())
         return RedirectResponse(f"{settings.frontend_url}/?oauthError=1&message={str(e)[:200]}")
     if getattr(user, "_was_link", False):
         return RedirectResponse(f"{settings.frontend_url}/settings?oauthLinked=yandex")
@@ -169,6 +175,7 @@ async def callback_vk(
     try:
         user, tokens = await handle_vk_callback(code, device_id, state, session)
     except Exception as e:
+        logger.error("VK callback failed: %s\n%s", e, traceback.format_exc())
         return RedirectResponse(f"{settings.frontend_url}/?oauthError=1&message={str(e)[:200]}")
     if getattr(user, "_was_link", False):
         return RedirectResponse(f"{settings.frontend_url}/settings?oauthLinked=vk")
