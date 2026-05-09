@@ -89,7 +89,20 @@ class EnvelopeService:
             result.append(EnvelopeResponse.from_orm_obj(e, source=source, paused=paused, items=items))
         return result
 
+    async def _resolve_user_set_id(self, user_id: uuid.UUID, set_id: str) -> str:
+        envelope = await self._repo.find_by_user_set(user_id, set_id)
+        if envelope is not None:
+            return set_id
+        stmt = select(Set.id).where(Set.parent_set_id == set_id, Set.author_id == user_id)
+        result = await self._session.execute(stmt)
+        for (candidate_id,) in result.all():
+            env = await self._repo.find_by_user_set(user_id, candidate_id)
+            if env is not None:
+                return candidate_id
+        return set_id
+
     async def get_envelope_by_set(self, user_id: uuid.UUID, set_id: str) -> EnvelopeResponse | None:
+        set_id = await self._resolve_user_set_id(user_id, set_id)
         envelope = await self._repo.find_by_user_set(user_id, set_id)
         if envelope is None:
             return None
@@ -165,18 +178,18 @@ class EnvelopeService:
                 detail="Set not found",
             )
 
+        existing_set_id = await self._resolve_user_set_id(user.id, set_id)
+        if await self._repo.find_by_user_set(user.id, existing_set_id) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Set already added to profile",
+            )
+
         if original.source == "community" or original.author_id != user.id:
             s = await self._clone_set_for_user(original, user)
             set_id = s.id
         else:
             s = original
-
-        existing = await self._repo.find_by_user_set(user.id, set_id)
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Set already added to profile",
-            )
 
         total_amount = 0
         for item in s.items or []:
@@ -270,6 +283,7 @@ class EnvelopeService:
         return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
+        set_id = await self._resolve_user_set_id(user.id, set_id)
         envelope = await self._repo.find_by_user_set(user.id, set_id)
         if envelope is None:
             raise HTTPException(
@@ -317,6 +331,7 @@ class EnvelopeService:
         return all(statuses)
 
     async def toggle_pause(self, user: User, set_id: str, paused: bool) -> None:
+        set_id = await self._resolve_user_set_id(user.id, set_id)
         envelope = await self._repo.find_by_user_set(user.id, set_id)
         if envelope is None:
             raise HTTPException(
@@ -332,6 +347,7 @@ class EnvelopeService:
         await self._session.commit()
 
     async def update_scale(self, user: User, set_id: str, scale) -> EnvelopeResponse:
+        set_id = await self._resolve_user_set_id(user.id, set_id)
         envelope = await self._repo.find_by_user_set(user.id, set_id)
         new_scale = Decimal(str(scale))
         if new_scale <= 0:
@@ -348,6 +364,7 @@ class EnvelopeService:
         return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused, items=items_resp)
 
     async def reset_envelope(self, user: User, set_id: str) -> EnvelopeResponse:
+        set_id = await self._resolve_user_set_id(user.id, set_id)
         envelope = await self._repo.find_by_user_set(user.id, set_id)
         if envelope is None:
             raise HTTPException(
@@ -399,6 +416,7 @@ class EnvelopeService:
         return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
 
     async def update_items(self, user: User, set_id: str, items: list[dict]) -> EnvelopeResponse:
+        set_id = await self._resolve_user_set_id(user.id, set_id)
         envelope = await self._repo.find_by_user_set(user.id, set_id)
         if envelope is None:
             return await self.add_set_to_profile(user, set_id, items=items)
