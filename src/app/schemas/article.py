@@ -89,6 +89,8 @@ class ArticleResponse(CamelModel):
     author: AuthorInfo | None = None
     created_at: datetime
     updated_at: datetime
+    is_read: bool = False
+    is_bookmarked: bool = False
 
 
 class ArticleListItem(CamelModel):
@@ -114,6 +116,8 @@ class ArticleListItem(CamelModel):
     reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
     created_at: datetime
+    is_read: bool = False
+    is_bookmarked: bool = False
 
 
 class ArticleCreate(CamelModel):

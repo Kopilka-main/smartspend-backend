@@ -26,6 +26,18 @@ class ArticleRepository:
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def list_by_ids(self, ids: list[str]) -> list[Article]:
+        if not ids:
+            return []
+        stmt = (
+            select(Article)
+            .options(selectinload(Article.author), selectinload(Article.comments))
+            .where(Article.id.in_(ids))
+            .order_by(Article.published_at.desc().nullslast(), Article.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().unique().all())
+
     async def list_published(
         self,
         category_id: str | None = None,

@@ -21,6 +21,8 @@ from src.app.schemas.inventory import (
     InventoryItemCreate,
     InventoryItemResponse,
     InventoryItemUpdate,
+    InventoryNoteCreate,
+    InventoryNoteResponse,
     InventoryPhotoResponse,
     InventoryPurchaseResponse,
     ReplaceRequest,
@@ -221,6 +223,15 @@ def _item_to_response(
                 created_at=ph.created_at,
             )
             for ph in (item.photos or [])
+        ],
+        notes_list=[
+            InventoryNoteResponse(
+                id=n.id,
+                text=n.text,
+                created_at=n.created_at,
+                updated_at=n.updated_at,
+            )
+            for n in (item.notes_list or [])
         ],
         created_at=item.created_at,
         updated_at=item.updated_at,
@@ -474,6 +485,52 @@ class InventoryService:
             file_path.unlink()
 
         await self._repo.delete_photo(photo_id)
+        await self._session.commit()
+
+    async def add_note(self, item_id: str, user_id: uuid.UUID, data: InventoryNoteCreate) -> InventoryNoteResponse:
+        from src.app.models.inventory_note import InventoryItemNote
+
+        item = await self._repo.get_by_id(item_id)
+        if item is None or item.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        note = InventoryItemNote(item_id=item_id, text=data.text)
+        self._session.add(note)
+        await self._session.flush()
+        await self._session.refresh(note)
+        await self._session.commit()
+        return InventoryNoteResponse(
+            id=note.id, text=note.text, created_at=note.created_at, updated_at=note.updated_at
+        )
+
+    async def update_note(
+        self, note_id: int, user_id: uuid.UUID, data: InventoryNoteCreate
+    ) -> InventoryNoteResponse:
+        from src.app.models.inventory_note import InventoryItemNote
+
+        note = await self._session.get(InventoryItemNote, note_id)
+        if note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        item = await self._repo.get_by_id(note.item_id)
+        if item is None or item.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your item")
+        note.text = data.text
+        await self._session.flush()
+        await self._session.refresh(note)
+        await self._session.commit()
+        return InventoryNoteResponse(
+            id=note.id, text=note.text, created_at=note.created_at, updated_at=note.updated_at
+        )
+
+    async def delete_note(self, note_id: int, user_id: uuid.UUID) -> None:
+        from src.app.models.inventory_note import InventoryItemNote
+
+        note = await self._session.get(InventoryItemNote, note_id)
+        if note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        item = await self._repo.get_by_id(note.item_id)
+        if item is None or item.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your item")
+        await self._session.delete(note)
         await self._session.commit()
 
     async def shopping_list(self, user_id: uuid.UUID, period: str = "week"):

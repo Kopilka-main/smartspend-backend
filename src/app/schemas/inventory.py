@@ -20,6 +20,17 @@ class InventoryPhotoResponse(CamelModel):
     created_at: datetime
 
 
+class InventoryNoteResponse(CamelModel):
+    id: int
+    text: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class InventoryNoteCreate(CamelModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class InventoryItemResponse(CamelModel):
     id: str
     user_id: str
@@ -57,6 +68,7 @@ class InventoryItemResponse(CamelModel):
     residual_value: int | None = None
     purchases: list[InventoryPurchaseResponse] = []
     photos: list[InventoryPhotoResponse] = []
+    notes_list: list[InventoryNoteResponse] = []
     created_at: datetime
     updated_at: datetime
 

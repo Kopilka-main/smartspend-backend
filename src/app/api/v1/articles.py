@@ -165,3 +165,32 @@ async def delete_note(note_id: int, user: CurrentUser, session: Session):
     service = ArticleService(session)
     await service.delete_note(note_id, user)
     return ApiResponse(data=None)
+
+
+@router.post("/{article_id}/bookmark", response_model=ApiResponse[None], status_code=201)
+async def add_bookmark(article_id: str, user: CurrentUser, session: Session):
+    service = ArticleService(session)
+    await service.add_bookmark(article_id, user.id)
+    return ApiResponse(data=None)
+
+
+@router.delete("/{article_id}/bookmark", response_model=ApiResponse[None])
+async def remove_bookmark(article_id: str, user: CurrentUser, session: Session):
+    service = ArticleService(session)
+    await service.remove_bookmark(article_id, user.id)
+    return ApiResponse(data=None)
+
+
+@router.get("/bookmarks/my", response_model=ApiResponse[list[ArticleListItem]])
+async def list_bookmarked(
+    user: CurrentUser,
+    session: Session,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    service = ArticleService(session)
+    items, total = await service.list_bookmarked(user.id, limit=limit, offset=offset)
+    return ApiResponse(
+        data=items,
+        meta=PaginationMeta(total=total, limit=limit, offset=offset).model_dump(by_alias=True),
+    )

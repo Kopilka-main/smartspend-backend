@@ -1,4 +1,5 @@
 from src.app.models.article import Article, ArticleBlock
+from src.app.models.article_bookmark import ArticleBookmark
 from src.app.models.article_comment import ArticleComment
 from src.app.models.article_note import ArticleNote
 from src.app.models.article_photo import ArticlePhoto
@@ -24,6 +25,7 @@ from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.follow import Follow
 from src.app.models.inventory_group import InventoryGroup, InventoryGroupCategory
 from src.app.models.inventory_item import InventoryItem, InventoryPhoto, InventoryPurchase
+from src.app.models.inventory_note import InventoryItemNote
 from src.app.models.notification import Notification
 from src.app.models.notification_message import NotificationMessage
 from src.app.models.oauth_state import OAuthState
@@ -42,6 +44,7 @@ from src.app.models.user_oauth_link import UserOAuthLink
 __all__ = [
     "Article",
     "ArticleBlock",
+    "ArticleBookmark",
     "ArticleComment",
     "ArticleNote",
     "ArticlePhoto",
@@ -60,6 +63,7 @@ __all__ = [
     "InventoryGroup",
     "InventoryGroupCategory",
     "InventoryItem",
+    "InventoryItemNote",
     "InventoryPhoto",
     "InventoryPurchase",
     "NotifType",

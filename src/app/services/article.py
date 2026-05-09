@@ -6,7 +6,9 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
+from sqlalchemy import select as sa_select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -298,6 +300,21 @@ class ArticleService:
         if user_id:
             notes = await self._get_notes(article_id, user_id)
             resp.notes = [ArticleNoteResponse(**n) for n in notes]
+            from src.app.models.article_bookmark import ArticleBookmark
+            from src.app.models.article_read import ArticleRead
+
+            read = await self._session.execute(
+                sa_select(ArticleRead.id).where(
+                    ArticleRead.user_id == user_id, ArticleRead.article_id == article_id
+                )
+            )
+            resp.is_read = read.scalar_one_or_none() is not None
+            bm = await self._session.execute(
+                sa_select(ArticleBookmark.id).where(
+                    ArticleBookmark.user_id == user_id, ArticleBookmark.article_id == article_id
+                )
+            )
+            resp.is_bookmarked = bm.scalar_one_or_none() is not None
         return resp
 
     async def create_article(self, user: User, data: ArticleCreate) -> ArticleResponse:
@@ -605,3 +622,57 @@ class ArticleService:
         )
         result = await self._session.execute(stmt)
         return [{"id": n.id, "text": n.text, "createdAt": n.created_at.isoformat()} for n in result.scalars().all()]
+
+
+    async def add_bookmark(self, article_id: str, user_id: uuid.UUID) -> None:
+        from src.app.models.article_bookmark import ArticleBookmark
+
+        a = await self._repo.get_by_id(article_id)
+        if a is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        existing = await self._session.execute(
+            sa_select(ArticleBookmark).where(
+                ArticleBookmark.user_id == user_id, ArticleBookmark.article_id == article_id
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            return
+        self._session.add(ArticleBookmark(user_id=user_id, article_id=article_id))
+        await self._session.commit()
+
+    async def remove_bookmark(self, article_id: str, user_id: uuid.UUID) -> None:
+        from src.app.models.article_bookmark import ArticleBookmark
+
+        await self._session.execute(
+            sa_delete(ArticleBookmark).where(
+                ArticleBookmark.user_id == user_id, ArticleBookmark.article_id == article_id
+            )
+        )
+        await self._session.commit()
+
+    async def list_bookmarked(
+        self, user_id: uuid.UUID, limit: int = 20, offset: int = 0
+    ) -> tuple[list[ArticleListItem], int]:
+        from src.app.models.article_bookmark import ArticleBookmark
+
+        bm_ids_stmt = sa_select(ArticleBookmark.article_id).where(ArticleBookmark.user_id == user_id)
+        bm_ids_result = await self._session.execute(bm_ids_stmt)
+        bm_ids = [r[0] for r in bm_ids_result.all()]
+        if not bm_ids:
+            return [], 0
+
+        total = len(bm_ids)
+        articles = await self._repo.list_by_ids(bm_ids[offset : offset + limit])
+        sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats(articles)
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        reactions_map = await reaction_repo.count_grouped_bulk("article", [a.id for a in articles])
+        result = []
+        for a in articles:
+            st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
+            rr = [ReactionCount(emoji=e, count=c) for e, c in reactions_map.get(a.id, [])]
+            result.append(
+                _article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl, reactions=rr)
+            )
+        return result, total

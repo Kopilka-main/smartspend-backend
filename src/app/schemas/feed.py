@@ -30,3 +30,4 @@ class FeedItem(CamelModel):
     linked_set_title: str | None = None
     set_link: SetLinkInfo | None = None
     is_read: bool = False
+    is_bookmarked: bool = False

@@ -86,7 +86,13 @@ class EnvelopeService:
         for e, source in rows:
             paused = await self._check_all_paused(user_id, e.set_id)
             items = await self._load_items(user_id, e.set_id)
-            result.append(EnvelopeResponse.from_orm_obj(e, source=source, paused=paused, items=items))
+            s = await self._session.get(Set, e.set_id)
+            parent_id = s.parent_set_id if s else None
+            result.append(
+                EnvelopeResponse.from_orm_obj(
+                    e, source=source, paused=paused, items=items, parent_set_id=parent_id
+                )
+            )
         return result
 
     async def _resolve_user_set_id(self, user_id: uuid.UUID, set_id: str) -> str:
@@ -110,7 +116,13 @@ class EnvelopeService:
         s = await catalog_repo.get_by_id(set_id)
         paused = await self._check_all_paused(user_id, set_id)
         items = await self._load_items(user_id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused, items=items)
+        return EnvelopeResponse.from_orm_obj(
+            envelope,
+            source=s.source if s else None,
+            paused=paused,
+            items=items,
+            parent_set_id=s.parent_set_id if s else None,
+        )
 
     async def _clone_set_for_user(self, original: Set, user: User) -> Set:
         from src.app.models.set import SetItem
@@ -280,7 +292,9 @@ class EnvelopeService:
         await self._session.commit()
         paused = await self._check_all_paused(user.id, set_id)
         items_resp = await self._load_items(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
+        return EnvelopeResponse.from_orm_obj(
+            envelope, source=s.source, paused=paused, items=items_resp, parent_set_id=s.parent_set_id
+        )
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
         set_id = await self._resolve_user_set_id(user.id, set_id)
@@ -361,7 +375,13 @@ class EnvelopeService:
         catalog_repo = CatalogRepository(self._session)
         s = await catalog_repo.get_by_id(set_id)
         items_resp = await self._load_items(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source if s else None, paused=paused, items=items_resp)
+        return EnvelopeResponse.from_orm_obj(
+            envelope,
+            source=s.source if s else None,
+            paused=paused,
+            items=items_resp,
+            parent_set_id=s.parent_set_id if s else None,
+        )
 
     async def reset_envelope(self, user: User, set_id: str) -> EnvelopeResponse:
         set_id = await self._resolve_user_set_id(user.id, set_id)
@@ -413,7 +433,9 @@ class EnvelopeService:
         await self._session.refresh(envelope)
         paused = await self._check_all_paused(user.id, set_id)
         items_resp = await self._load_items(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
+        return EnvelopeResponse.from_orm_obj(
+            envelope, source=s.source, paused=paused, items=items_resp, parent_set_id=s.parent_set_id
+        )
 
     async def update_items(self, user: User, set_id: str, items: list[dict]) -> EnvelopeResponse:
         set_id = await self._resolve_user_set_id(user.id, set_id)
@@ -467,4 +489,6 @@ class EnvelopeService:
         await self._session.refresh(envelope)
         paused = await self._check_all_paused(user.id, set_id)
         items_resp = await self._load_items(user.id, set_id)
-        return EnvelopeResponse.from_orm_obj(envelope, source=s.source, paused=paused, items=items_resp)
+        return EnvelopeResponse.from_orm_obj(
+            envelope, source=s.source, paused=paused, items=items_resp, parent_set_id=s.parent_set_id
+        )

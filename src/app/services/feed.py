@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.app.models.article import Article
+from src.app.models.article_bookmark import ArticleBookmark
 from src.app.models.article_read import ArticleRead
 from src.app.models.envelope import Envelope
 from src.app.models.envelope_category import EnvelopeCategory
@@ -109,13 +110,19 @@ class FeedService:
                 cat_ids.add(a.category_id)
 
         read_ids: set[str] = set()
+        bookmark_ids: set[str] = set()
         if user_id and articles:
+            ids = [a.id for a in articles]
             reads = await self._session.execute(
-                select(ArticleRead.article_id).where(
-                    ArticleRead.user_id == user_id, ArticleRead.article_id.in_([a.id for a in articles])
-                )
+                select(ArticleRead.article_id).where(ArticleRead.user_id == user_id, ArticleRead.article_id.in_(ids))
             )
             read_ids = {r[0] for r in reads.all()}
+            bookmarks = await self._session.execute(
+                select(ArticleBookmark.article_id).where(
+                    ArticleBookmark.user_id == user_id, ArticleBookmark.article_id.in_(ids)
+                )
+            )
+            bookmark_ids = {r[0] for r in bookmarks.all()}
 
         sets_map: dict[str, tuple[str, str]] = {}
         if set_ids:
@@ -159,6 +166,7 @@ class FeedService:
                     else None,
                     set_link=set_link,
                     is_read=a.id in read_ids,
+                    is_bookmarked=a.id in bookmark_ids,
                 )
             )
         return items, total

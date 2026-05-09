@@ -7,6 +7,8 @@ from src.app.schemas.inventory import (
     InventoryItemCreate,
     InventoryItemResponse,
     InventoryItemUpdate,
+    InventoryNoteCreate,
+    InventoryNoteResponse,
     InventoryPhotoResponse,
     ReassignSetRequest,
     ReplaceRequest,
@@ -89,4 +91,23 @@ async def add_photo(item_id: str, file: UploadFile, user: CurrentUser, session: 
 async def delete_photo(photo_id: int, user: CurrentUser, session: Session):
     service = InventoryService(session)
     await service.delete_photo(photo_id, user.id)
+    return ApiResponse(data=None)
+
+
+@router.post("/items/{item_id}/notes", response_model=ApiResponse[InventoryNoteResponse], status_code=201)
+async def add_item_note(item_id: str, body: InventoryNoteCreate, user: CurrentUser, session: Session):
+    service = InventoryService(session)
+    return ApiResponse(data=await service.add_note(item_id, user.id, body))
+
+
+@router.put("/notes/{note_id}", response_model=ApiResponse[InventoryNoteResponse])
+async def update_item_note(note_id: int, body: InventoryNoteCreate, user: CurrentUser, session: Session):
+    service = InventoryService(session)
+    return ApiResponse(data=await service.update_note(note_id, user.id, body))
+
+
+@router.delete("/notes/{note_id}", response_model=ApiResponse[None])
+async def delete_item_note(note_id: int, user: CurrentUser, session: Session):
+    service = InventoryService(session)
+    await service.delete_note(note_id, user.id)
     return ApiResponse(data=None)

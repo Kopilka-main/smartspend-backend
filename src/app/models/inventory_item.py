@@ -63,6 +63,12 @@ class InventoryItem(Base):
     photos: Mapped[list["InventoryPhoto"]] = relationship(
         back_populates="item", cascade="all, delete-orphan", lazy="selectin"
     )
+    notes_list: Mapped[list["InventoryItemNote"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="InventoryItemNote.created_at.desc()",
+    )
 
 
 class InventoryPurchase(Base):
