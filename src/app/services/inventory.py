@@ -498,13 +498,9 @@ class InventoryService:
         await self._session.flush()
         await self._session.refresh(note)
         await self._session.commit()
-        return InventoryNoteResponse(
-            id=note.id, text=note.text, created_at=note.created_at, updated_at=note.updated_at
-        )
+        return InventoryNoteResponse(id=note.id, text=note.text, created_at=note.created_at, updated_at=note.updated_at)
 
-    async def update_note(
-        self, note_id: int, user_id: uuid.UUID, data: InventoryNoteCreate
-    ) -> InventoryNoteResponse:
+    async def update_note(self, note_id: int, user_id: uuid.UUID, data: InventoryNoteCreate) -> InventoryNoteResponse:
         from src.app.models.inventory_note import InventoryItemNote
 
         note = await self._session.get(InventoryItemNote, note_id)
@@ -517,9 +513,7 @@ class InventoryService:
         await self._session.flush()
         await self._session.refresh(note)
         await self._session.commit()
-        return InventoryNoteResponse(
-            id=note.id, text=note.text, created_at=note.created_at, updated_at=note.updated_at
-        )
+        return InventoryNoteResponse(id=note.id, text=note.text, created_at=note.created_at, updated_at=note.updated_at)
 
     async def delete_note(self, note_id: int, user_id: uuid.UUID) -> None:
         from src.app.models.inventory_note import InventoryItemNote

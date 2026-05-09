@@ -304,9 +304,7 @@ class ArticleService:
             from src.app.models.article_read import ArticleRead
 
             read = await self._session.execute(
-                sa_select(ArticleRead.id).where(
-                    ArticleRead.user_id == user_id, ArticleRead.article_id == article_id
-                )
+                sa_select(ArticleRead.id).where(ArticleRead.user_id == user_id, ArticleRead.article_id == article_id)
             )
             resp.is_read = read.scalar_one_or_none() is not None
             bm = await self._session.execute(
@@ -622,7 +620,6 @@ class ArticleService:
         )
         result = await self._session.execute(stmt)
         return [{"id": n.id, "text": n.text, "createdAt": n.created_at.isoformat()} for n in result.scalars().all()]
-
 
     async def add_bookmark(self, article_id: str, user_id: uuid.UUID) -> None:
         from src.app.models.article_bookmark import ArticleBookmark

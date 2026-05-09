@@ -89,9 +89,7 @@ class EnvelopeService:
             s = await self._session.get(Set, e.set_id)
             parent_id = s.parent_set_id if s else None
             result.append(
-                EnvelopeResponse.from_orm_obj(
-                    e, source=source, paused=paused, items=items, parent_set_id=parent_id
-                )
+                EnvelopeResponse.from_orm_obj(e, source=source, paused=paused, items=items, parent_set_id=parent_id)
             )
         return result
 
