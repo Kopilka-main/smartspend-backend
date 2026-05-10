@@ -80,6 +80,8 @@ class SetResponse(CamelModel):
     status: str = "published"
     about_title: str | None = None
     about_text: str | None = None
+    about_md: str | None = None
+    about_html: str | None = None
     items: list[SetItemResponse] = []
     photos: list[SetPhotoResponse] = []
     reactions: list[ReactionCount] = []
@@ -131,6 +133,8 @@ class SetCreate(CamelModel):
     full_cost: int | None = Field(None, ge=0)
     about_title: str | None = Field(None, max_length=200)
     about_text: str | None = None
+    about_md: str | None = None
+    about_html: str | None = None
     items: list[SetItemCreate] = []
     photo_ids: list[int] = []
 
@@ -140,6 +144,8 @@ class SetUpdate(CamelModel):
     description: str | None = Field(None, max_length=2000)
     about_title: str | None = Field(None, max_length=200)
     about_text: str | None = None
+    about_md: str | None = None
+    about_html: str | None = None
     category_id: str | None = Field(None, min_length=1, max_length=20)
     set_type: str | None = Field(None, max_length=20)
     color: str | None = Field(None, max_length=7)

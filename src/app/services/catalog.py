@@ -172,6 +172,8 @@ def _set_to_response(
         status=getattr(s, "status", "published"),
         about_title=s.about_title,
         about_text=s.about_text,
+        about_md=getattr(s, "about_md", None),
+        about_html=getattr(s, "about_html", None),
         items=items,
         photos=photos,
         reactions=reactions or [],
@@ -364,6 +366,8 @@ class CatalogService:
             author_id=user.id,
             about_title=data.about_title,
             about_text=data.about_text,
+            about_md=data.about_md,
+            about_html=data.about_html,
         )
         await self._repo.create(s)
 
@@ -430,6 +434,10 @@ class CatalogService:
             updates["about_title"] = data.about_title
         if data.about_text is not None:
             updates["about_text"] = data.about_text
+        if data.about_md is not None:
+            updates["about_md"] = data.about_md
+        if data.about_html is not None:
+            updates["about_html"] = data.about_html
         if data.category_id is not None:
             updates["category_id"] = data.category_id
         if data.set_type is not None:

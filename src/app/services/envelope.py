@@ -144,6 +144,8 @@ class EnvelopeService:
             parent_set_id=original.id,
             about_title=original.about_title,
             about_text=original.about_text,
+            about_md=getattr(original, "about_md", None),
+            about_html=getattr(original, "about_html", None),
             status="published",
             period=original.period,
             full_cost=original.full_cost,

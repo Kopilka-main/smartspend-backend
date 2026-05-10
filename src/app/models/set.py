@@ -43,6 +43,8 @@ class Set(Base):
     )
     about_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     about_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    about_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    about_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="published")
     period: Mapped[str | None] = mapped_column(String(50), nullable=True)
     full_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
