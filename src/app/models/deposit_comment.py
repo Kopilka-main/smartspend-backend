@@ -31,4 +31,6 @@ class DepositComment(Base):
     dislikes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    parent: Mapped["DepositComment | None"] = relationship(remote_side="DepositComment.id", lazy="noload")
+    parent: Mapped["DepositComment | None"] = relationship(
+        remote_side="DepositComment.id", foreign_keys="DepositComment.parent_id", lazy="noload"
+    )

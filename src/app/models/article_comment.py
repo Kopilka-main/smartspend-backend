@@ -26,7 +26,9 @@ class ArticleComment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     article: Mapped["Article"] = relationship(back_populates="comments")
-    parent: Mapped["ArticleComment | None"] = relationship(remote_side="ArticleComment.id", lazy="noload")
+    parent: Mapped["ArticleComment | None"] = relationship(
+        remote_side="ArticleComment.id", foreign_keys="ArticleComment.parent_id", lazy="noload"
+    )
     parent_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("article_comments.id", ondelete="CASCADE"), nullable=True
     )

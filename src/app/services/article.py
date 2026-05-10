@@ -490,9 +490,7 @@ class ArticleService:
         reply_ids = {c.reply_to_id for c in comments if c.reply_to_id}
         reply_map: dict[int, ArticleComment] = {}
         if reply_ids:
-            result = await self._session.execute(
-                sa_select(ArticleComment).where(ArticleComment.id.in_(reply_ids))
-            )
+            result = await self._session.execute(sa_select(ArticleComment).where(ArticleComment.id.in_(reply_ids)))
             reply_map = {r.id: r for r in result.scalars().all()}
         return [
             ArticleCommentResponse(
