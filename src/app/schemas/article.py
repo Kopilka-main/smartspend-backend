@@ -68,6 +68,8 @@ class ArticleResponse(CamelModel):
     category_id: str | None = None
     category_name: str | None = None
     preview: str | None = None
+    content_md: str | None = None
+    content_html: str | None = None
     published_at: date | None = None
     status: str
     is_private: bool = False
@@ -125,6 +127,8 @@ class ArticleCreate(CamelModel):
     article_type: str | None = Field(None, max_length=50)
     category_id: str | None = Field(None, max_length=20)
     preview: str | None = Field(None, max_length=2000)
+    content_md: str | None = None
+    content_html: str | None = None
     is_private: bool = False
     read_time: int | None = Field(None, ge=1)
     tags: list[str] | None = None
@@ -139,6 +143,8 @@ class ArticleUpdate(CamelModel):
     article_type: str | None = Field(None, max_length=50)
     category_id: str | None = Field(None, max_length=20)
     preview: str | None = Field(None, max_length=2000)
+    content_md: str | None = None
+    content_html: str | None = None
     is_private: bool | None = None
     read_time: int | None = Field(None, ge=1)
     tags: list[str] | None = None
@@ -148,11 +154,17 @@ class ArticleUpdate(CamelModel):
     photo_ids: list[int] | None = None
 
 
+class ReplyToInfo(CamelModel):
+    user_id: str | None = None
+    name: str
+
+
 class ArticleCommentResponse(CamelModel):
     id: int
     article_id: str
     user_id: str | None = None
     parent_id: int | None = None
+    reply_to: ReplyToInfo | None = None
     initials: str
     name: str
     text: str
@@ -164,6 +176,7 @@ class ArticleCommentResponse(CamelModel):
 class ArticleCommentCreate(CamelModel):
     text: str = Field(min_length=1, max_length=2000)
     parent_id: int | None = None
+    reply_to_id: int | None = None
 
 
 class ArticleSetLinkCreate(CamelModel):

@@ -10,7 +10,6 @@ from src.app.models.article_read import ArticleRead
 from src.app.models.envelope import Envelope
 from src.app.models.envelope_category import EnvelopeCategory
 from src.app.models.follow import Follow
-from src.app.models.reaction import Reaction
 from src.app.models.set import Set
 from src.app.schemas.feed import FeedItem, SetLinkInfo
 from src.app.schemas.user import AuthorInfo
@@ -59,10 +58,8 @@ class FeedService:
             following_ids = select(Follow.following_id).where(Follow.follower_id == user_id)
             base = base.where(Article.author_id.in_(following_ids))
         elif mode == "liked" and user_id:
-            liked_ids = select(Reaction.target_id).where(
-                Reaction.user_id == user_id, Reaction.target_type == "article", Reaction.type == "like"
-            )
-            base = base.where(Article.id.in_(liked_ids))
+            bookmarked_ids = select(ArticleBookmark.article_id).where(ArticleBookmark.user_id == user_id)
+            base = base.where(Article.id.in_(bookmarked_ids))
         elif mode == "my_sets" and user_id:
             user_set_ids = select(Envelope.set_id).where(Envelope.user_id == user_id)
             base = base.where(

@@ -34,11 +34,18 @@ from src.app.schemas.article import (
     ArticleSetLinkCreate,
     ArticleUpdate,
     LinkedSetInfo,
+    ReplyToInfo,
     SetLinkCard,
 )
 from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
 from src.app.services.upload import UploadService
+
+
+def _build_reply_to(target) -> ReplyToInfo | None:
+    if target is None:
+        return None
+    return ReplyToInfo(user_id=str(target.user_id) if target.user_id else None, name=target.name)
 
 
 def _author_info(user) -> AuthorInfo | None:
@@ -79,6 +86,8 @@ def _article_to_response(
         category_id=a.category_id,
         category_name=category_name,
         preview=a.preview,
+        content_md=a.content_md,
+        content_html=a.content_html,
         published_at=a.published_at,
         status=a.status,
         is_private=a.is_private,
@@ -324,6 +333,8 @@ class ArticleService:
             article_type=data.article_type,
             category_id=data.category_id,
             preview=data.preview,
+            content_md=data.content_md,
+            content_html=data.content_html,
             is_private=data.is_private,
             read_time=data.read_time,
             tags=data.tags,
@@ -380,6 +391,10 @@ class ArticleService:
             updates["category_id"] = data.category_id
         if data.preview is not None:
             updates["preview"] = data.preview
+        if data.content_md is not None:
+            updates["content_md"] = data.content_md
+        if data.content_html is not None:
+            updates["content_html"] = data.content_html
         if data.linked_set_id is not None:
             updates["linked_set_id"] = data.linked_set_id
         if data.linked_set_ids is not None:
@@ -472,12 +487,20 @@ class ArticleService:
         self, article_id: str, sort: str = "new", limit: int = 50, offset: int = 0
     ) -> tuple[list[ArticleCommentResponse], int]:
         comments, total = await self._repo.list_comments(article_id, sort, limit, offset)
+        reply_ids = {c.reply_to_id for c in comments if c.reply_to_id}
+        reply_map: dict[int, ArticleComment] = {}
+        if reply_ids:
+            result = await self._session.execute(
+                sa_select(ArticleComment).where(ArticleComment.id.in_(reply_ids))
+            )
+            reply_map = {r.id: r for r in result.scalars().all()}
         return [
             ArticleCommentResponse(
                 id=c.id,
                 article_id=c.article_id,
                 user_id=str(c.user_id) if c.user_id else None,
                 parent_id=c.parent_id,
+                reply_to=_build_reply_to(reply_map.get(c.reply_to_id)) if c.reply_to_id else None,
                 initials=c.initials,
                 name=c.name,
                 text=c.text,
@@ -500,14 +523,22 @@ class ArticleService:
             name=user.display_name,
             text=data.text,
             parent_id=data.parent_id,
+            reply_to_id=data.reply_to_id,
         )
         comment = await self._repo.add_comment(comment)
         await self._session.commit()
+
+        reply_to = None
+        if comment.reply_to_id:
+            target = await self._session.get(ArticleComment, comment.reply_to_id)
+            reply_to = _build_reply_to(target)
+
         return ArticleCommentResponse(
             id=comment.id,
             article_id=comment.article_id,
             user_id=str(comment.user_id),
             parent_id=comment.parent_id,
+            reply_to=reply_to,
             initials=comment.initials,
             name=comment.name,
             text=comment.text,

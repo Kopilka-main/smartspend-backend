@@ -2,7 +2,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.app.models.reaction import Reaction
+from src.app.models.saved_set import SavedSet
 from src.app.models.set import Set, SetItem
 from src.app.models.set_comment import SetComment
 
@@ -45,10 +45,8 @@ class CatalogRepository:
                 base = base.where(Set.category_id.in_(filtered))
         if source and source != "all":
             if source == "liked" and user_id:
-                liked_ids = select(Reaction.target_id).where(
-                    Reaction.user_id == user_id, Reaction.target_type == "set", Reaction.type == "like"
-                )
-                base = base.where(Set.id.in_(liked_ids))
+                bookmarked_ids = select(SavedSet.set_id).where(SavedSet.user_id == user_id)
+                base = base.where(Set.id.in_(bookmarked_ids))
             elif source == "ss":
                 base = base.where(Set.source == "smartspend")
             elif source != "liked":

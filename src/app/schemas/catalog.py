@@ -155,11 +155,17 @@ class SetNoteResponse(CamelModel):
     created_at: datetime
 
 
+class SetReplyToInfo(CamelModel):
+    user_id: str | None = None
+    name: str
+
+
 class SetCommentResponse(CamelModel):
     id: int
     set_id: str
     user_id: str | None = None
     parent_id: int | None = None
+    reply_to: SetReplyToInfo | None = None
     initials: str
     name: str
     text: str
@@ -171,6 +177,7 @@ class SetCommentResponse(CamelModel):
 class SetCommentCreate(CamelModel):
     text: str = Field(min_length=1, max_length=2000)
     parent_id: int | None = None
+    reply_to_id: int | None = None
 
 
 class SetNoteCreate(CamelModel):

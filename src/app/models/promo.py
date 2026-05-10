@@ -64,6 +64,9 @@ class PromoComment(Base):
     parent_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("promo_comments.id", ondelete="CASCADE"), nullable=True
     )
+    reply_to_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("promo_comments.id", ondelete="SET NULL"), nullable=True
+    )
     likes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     dislikes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

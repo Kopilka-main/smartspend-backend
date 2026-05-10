@@ -30,3 +30,6 @@ class ArticleComment(Base):
     parent_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("article_comments.id", ondelete="CASCADE"), nullable=True
     )
+    reply_to_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("article_comments.id", ondelete="SET NULL"), nullable=True
+    )

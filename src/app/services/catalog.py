@@ -27,12 +27,19 @@ from src.app.schemas.catalog import (
     SetListItem,
     SetNoteResponse,
     SetPhotoResponse,
+    SetReplyToInfo,
     SetResponse,
     SetUpdate,
 )
 from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
 from src.app.services.upload import UploadService
+
+
+def _build_set_reply_to(target) -> SetReplyToInfo | None:
+    if target is None:
+        return None
+    return SetReplyToInfo(user_id=str(target.user_id) if target.user_id else None, name=target.name)
 
 
 def _compute_monthly(item) -> Decimal:
@@ -468,12 +475,18 @@ class CatalogService:
         self, set_id: str, sort: str = "new", limit: int = 50, offset: int = 0
     ) -> tuple[list[SetCommentResponse], int]:
         comments, total = await self._repo.list_comments(set_id, sort, limit, offset)
+        reply_ids = {c.reply_to_id for c in comments if c.reply_to_id}
+        reply_map: dict[int, SetComment] = {}
+        if reply_ids:
+            result = await self._session.execute(select(SetComment).where(SetComment.id.in_(reply_ids)))
+            reply_map = {r.id: r for r in result.scalars().all()}
         return [
             SetCommentResponse(
                 id=c.id,
                 set_id=c.set_id,
                 user_id=str(c.user_id) if c.user_id else None,
                 parent_id=c.parent_id,
+                reply_to=_build_set_reply_to(reply_map.get(c.reply_to_id)) if c.reply_to_id else None,
                 initials=c.initials,
                 name=c.name,
                 text=c.text,
@@ -496,14 +509,20 @@ class CatalogService:
             name=user.display_name,
             text=data.text,
             parent_id=data.parent_id,
+            reply_to_id=data.reply_to_id,
         )
         comment = await self._repo.add_comment(comment)
         await self._session.commit()
+        reply_to = None
+        if comment.reply_to_id:
+            target = await self._session.get(SetComment, comment.reply_to_id)
+            reply_to = _build_set_reply_to(target)
         return SetCommentResponse(
             id=comment.id,
             set_id=comment.set_id,
             user_id=str(comment.user_id),
             parent_id=comment.parent_id,
+            reply_to=reply_to,
             initials=comment.initials,
             name=comment.name,
             text=comment.text,
