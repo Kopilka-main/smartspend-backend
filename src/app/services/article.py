@@ -406,9 +406,10 @@ class ArticleService:
             updates["read_time"] = data.read_time
         if data.tags is not None:
             updates["tags"] = data.tags
-        if data.status is not None:
-            updates["status"] = data.status
-            if data.status == "published" and a.published_at is None:
+        new_status = data.status or "published"
+        if new_status != a.status:
+            updates["status"] = new_status
+            if new_status == "published" and a.published_at is None:
                 updates["published_at"] = date.today()
 
         if updates:

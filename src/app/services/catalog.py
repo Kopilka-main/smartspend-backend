@@ -446,8 +446,9 @@ class CatalogService:
             updates["color"] = data.color
         if data.is_private is not None:
             updates["is_private"] = data.is_private
-        if data.status is not None:
-            updates["status"] = data.status
+        new_status = data.status or "published"
+        if new_status != s.status:
+            updates["status"] = new_status
         if data.period is not None:
             updates["period"] = data.period
         if data.full_cost is not None:
