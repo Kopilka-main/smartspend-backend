@@ -58,9 +58,10 @@ async def list_my_sets(user: CurrentUser, session: Session):
 
 
 @router.get("/{set_id}", response_model=ApiResponse[SetResponse])
-async def get_set(set_id: str, session: Session):
+async def get_set(set_id: str, session: Session, current_user: OptionalUser):
     service = CatalogService(session)
-    return ApiResponse(data=await service.get_set(set_id))
+    user_id = current_user.id if current_user else None
+    return ApiResponse(data=await service.get_set(set_id, user_id=user_id))
 
 
 @router.post("", response_model=ApiResponse[SetResponse], status_code=201)

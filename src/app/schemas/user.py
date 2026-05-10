@@ -61,7 +61,7 @@ class SettingsResponse(CamelModel):
 
 
 class AuthorInfo(CamelModel):
-    id: uuid.UUID
+    id: uuid.UUID | None = None
     display_name: str
     username: str | None = None
     initials: str

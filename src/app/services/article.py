@@ -340,7 +340,8 @@ class ArticleService:
             tags=data.tags,
             linked_set_id=data.linked_set_id,
             linked_set_ids=data.linked_set_ids,
-            status="draft",
+            status=data.status or "published",
+            published_at=date.today() if (data.status or "published") == "published" else None,
         )
         await self._repo.create(article)
 
@@ -405,6 +406,10 @@ class ArticleService:
             updates["read_time"] = data.read_time
         if data.tags is not None:
             updates["tags"] = data.tags
+        if data.status is not None:
+            updates["status"] = data.status
+            if data.status == "published" and a.published_at is None:
+                updates["published_at"] = date.today()
 
         if updates:
             stmt = sa_update(Article).where(Article.id == article_id).values(**updates)

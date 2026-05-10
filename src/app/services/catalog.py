@@ -87,8 +87,17 @@ def _build_set_tags(s) -> list[str]:
     return tags
 
 
-def _author_info(user) -> AuthorInfo | None:
+def _author_info(user, fallback_source: str | None = None) -> AuthorInfo | None:
     if user is None:
+        if fallback_source == "smartspend":
+            return AuthorInfo(
+                id=None,
+                display_name="SmartSpend",
+                username="smartspend",
+                initials="SS",
+                color="#7DAF92",
+                avatar_url=None,
+            )
         return None
     if user.deleted_at is not None:
         return AuthorInfo(
@@ -113,6 +122,7 @@ def _set_to_response(
     comments_count: int = 0,
     reactions: list[ReactionCount] | None = None,
     parent_set: ParentSetInfo | None = None,
+    is_bookmarked: bool = False,
 ) -> SetResponse:
     items = [
         SetItemResponse(
@@ -165,15 +175,20 @@ def _set_to_response(
         items=items,
         photos=photos,
         reactions=reactions or [],
-        author=_author_info(s.author),
+        author=_author_info(s.author, fallback_source=s.source),
         parent_set=parent_set,
+        is_bookmarked=is_bookmarked,
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
 
 
 def _set_to_list_item(
-    s: Set, category_name: str | None = None, comments_count: int = 0, reactions: list[ReactionCount] | None = None
+    s: Set,
+    category_name: str | None = None,
+    comments_count: int = 0,
+    reactions: list[ReactionCount] | None = None,
+    is_bookmarked: bool = False,
 ) -> SetListItem:
     items = [
         SetItemResponse(
@@ -218,7 +233,8 @@ def _set_to_list_item(
         items=items,
         tags=_build_set_tags(s),
         reactions=reactions or [],
-        author=_author_info(s.author),
+        author=_author_info(s.author, fallback_source=s.source),
+        is_bookmarked=is_bookmarked,
         created_at=s.created_at,
     )
 
@@ -235,18 +251,32 @@ class CatalogService:
             self._cat_cache = dict(result.all())
         return self._cat_cache
 
-    async def _enrich_list(self, sets: list[Set]) -> list[SetListItem]:
+    async def _enrich_list(self, sets: list[Set], user_id=None) -> list[SetListItem]:
         cats = await self._get_category_names()
         set_ids = [s.id for s in sets]
         from src.app.repositories.reaction import ReactionRepository
 
         reaction_repo = ReactionRepository(self._session)
         reactions_map = await reaction_repo.count_grouped_bulk("set", set_ids)
+        bm_ids: set[str] = set()
+        if user_id is not None and set_ids:
+            bm_result = await self._session.execute(
+                select(SavedSet.set_id).where(SavedSet.user_id == user_id, SavedSet.set_id.in_(set_ids))
+            )
+            bm_ids = {r[0] for r in bm_result.all()}
         result = []
         for s in sets:
             cc = len(s.comments) if s.comments else 0
             rr = [ReactionCount(emoji=e, count=c) for e, c in reactions_map.get(s.id, [])]
-            result.append(_set_to_list_item(s, category_name=cats.get(s.category_id), comments_count=cc, reactions=rr))
+            result.append(
+                _set_to_list_item(
+                    s,
+                    category_name=cats.get(s.category_id),
+                    comments_count=cc,
+                    reactions=rr,
+                    is_bookmarked=s.id in bm_ids,
+                )
+            )
         return result
 
     async def list_sets(
@@ -270,13 +300,13 @@ class CatalogService:
             offset=offset,
             user_id=user_id,
         )
-        return await self._enrich_list(sets), total
+        return await self._enrich_list(sets, user_id=user_id), total
 
     async def list_by_author(self, author_id) -> tuple[list[SetListItem], int]:
         sets, total = await self._repo.list_by_author(author_id)
-        return await self._enrich_list(sets), total
+        return await self._enrich_list(sets, user_id=author_id), total
 
-    async def get_set(self, set_id: str) -> SetResponse:
+    async def get_set(self, set_id: str, user_id=None) -> SetResponse:
         s = await self._repo.get_by_id(set_id)
         if s is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
@@ -299,8 +329,20 @@ class CatalogService:
                     author=_author_info(parent.author),
                 )
 
+        is_bookmarked = False
+        if user_id is not None:
+            bm = await self._session.execute(
+                select(SavedSet).where(SavedSet.user_id == user_id, SavedSet.set_id == set_id)
+            )
+            is_bookmarked = bm.scalar_one_or_none() is not None
+
         return _set_to_response(
-            s, category_name=cats.get(s.category_id), comments_count=cc, reactions=rr, parent_set=parent_info
+            s,
+            category_name=cats.get(s.category_id),
+            comments_count=cc,
+            reactions=rr,
+            parent_set=parent_info,
+            is_bookmarked=is_bookmarked,
         )
 
     async def create_set(self, user: User, data: SetCreate) -> SetResponse:

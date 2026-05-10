@@ -129,6 +129,7 @@ class ArticleCreate(CamelModel):
     preview: str | None = Field(None, max_length=2000)
     content_md: str | None = None
     content_html: str | None = None
+    status: str | None = Field(None, max_length=20)
     is_private: bool = False
     read_time: int | None = Field(None, ge=1)
     tags: list[str] | None = None
@@ -145,6 +146,7 @@ class ArticleUpdate(CamelModel):
     preview: str | None = Field(None, max_length=2000)
     content_md: str | None = None
     content_html: str | None = None
+    status: str | None = Field(None, max_length=20)
     is_private: bool | None = None
     read_time: int | None = Field(None, ge=1)
     tags: list[str] | None = None
