@@ -34,6 +34,10 @@ class ReactionTarget(str, enum.Enum):
     ARTICLE = "article"
     SET = "set"
     COMMENT = "comment"
+    ARTICLE_COMMENT = "article_comment"
+    SET_COMMENT = "set_comment"
+    PROMO_COMMENT = "promo_comment"
+    DEPOSIT_COMMENT = "deposit_comment"
 
 
 class ReactionType(str, enum.Enum):

@@ -155,3 +155,18 @@ class ReactionService:
                             await self._session.execute(stmt)
                         else:
                             logger.warning("reaction.sync comment=%d not found in any table", comment_id)
+        elif target_type in {"article_comment", "set_comment", "promo_comment", "deposit_comment"}:
+            try:
+                comment_id = int(target_id)
+            except ValueError:
+                logger.warning("reaction.sync %s: non-int target_id=%s", target_type, target_id)
+                return
+            model_map = {
+                "article_comment": ArticleComment,
+                "set_comment": SetComment,
+                "promo_comment": PromoComment,
+                "deposit_comment": DepositComment,
+            }
+            model = model_map[target_type]
+            stmt = sa_update(model).where(model.id == comment_id).values(likes_count=likes, dislikes_count=dislikes)
+            await self._session.execute(stmt)
