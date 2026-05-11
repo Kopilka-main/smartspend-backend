@@ -113,19 +113,26 @@ class DepositService:
         count_q = query.with_only_columns(sa_func.count(Deposit.id))
         total = (await self._session.execute(count_q)).scalar() or 0
 
-        query = query.limit(limit).offset(offset)
         result = await self._session.execute(query)
-        deposits = list(result.scalars().all())
+        all_deposits = list(result.scalars().all())
 
-        items = [self._to_response(d, amount, months) for d in deposits]
+        if months is not None:
+            all_deposits = [d for d in all_deposits if self._pick_rate(d.rates or {}, months) > 0]
+            total = len(all_deposits)
+
+        items = [self._to_response(d, amount, months) for d in all_deposits]
 
         if sort == "rate":
-            items.sort(key=lambda x: x.max_rate or 0, reverse=True)
+            if months is not None:
+                items.sort(key=lambda x: self._pick_rate(x.rates or {}, months), reverse=True)
+            else:
+                items.sort(key=lambda x: x.max_rate or 0, reverse=True)
         elif sort == "income" and amount is not None and months is not None:
             items.sort(key=lambda x: x.calc_income or 0, reverse=True)
         else:
             items.sort(key=lambda x: x.bank_name)
 
+        items = items[offset : offset + limit]
         return items, total
 
     async def get_deposit(self, deposit_id: str) -> DepositResponse:
