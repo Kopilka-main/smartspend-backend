@@ -1,9 +1,13 @@
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.models.article import Article
+from src.app.models.follow import Follow
 from src.app.models.notification import Notification
+from src.app.models.set import Set
 from src.app.models.user import User
 from src.app.repositories.follow import FollowRepository
 from src.app.repositories.notification import NotificationRepository
@@ -56,6 +60,24 @@ class FollowService:
         await self._repo.remove(follower_id, following_id)
         await self._session.commit()
 
+    async def _counts_for(self, user_id: uuid.UUID) -> tuple[int, int, int]:
+        followers = await self._session.execute(
+            select(func.count()).select_from(Follow).where(Follow.following_id == user_id)
+        )
+        articles = await self._session.execute(
+            select(func.count()).select_from(Article).where(Article.author_id == user_id, Article.status == "published")
+        )
+        sets = await self._session.execute(
+            select(func.count())
+            .select_from(Set)
+            .where(Set.author_id == user_id, Set.hidden.is_(False), Set.is_private.is_(False))
+        )
+        return (
+            followers.scalar_one() or 0,
+            articles.scalar_one() or 0,
+            sets.scalar_one() or 0,
+        )
+
     async def list_following(self, user_id: uuid.UUID) -> list:
         from src.app.schemas.user import AuthorInfo
 
@@ -67,6 +89,7 @@ class FollowService:
         for uid in ids:
             u = await user_repo.get_by_id(uid)
             if u:
+                fc, ac, sc = await self._counts_for(uid)
                 result.append(
                     AuthorInfo(
                         id=u.id,
@@ -76,6 +99,9 @@ class FollowService:
                         color=u.color,
                         bio=u.bio,
                         avatar_url=u.avatar_url,
+                        followers_count=fc,
+                        articles_count=ac,
+                        sets_count=sc,
                     )
                 )
         return result
@@ -91,6 +117,7 @@ class FollowService:
         for uid in ids:
             u = await user_repo.get_by_id(uid)
             if u:
+                fc, ac, sc = await self._counts_for(uid)
                 result.append(
                     AuthorInfo(
                         id=u.id,
@@ -100,6 +127,9 @@ class FollowService:
                         color=u.color,
                         bio=u.bio,
                         avatar_url=u.avatar_url,
+                        followers_count=fc,
+                        articles_count=ac,
+                        sets_count=sc,
                     )
                 )
         return result
