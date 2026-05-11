@@ -425,7 +425,9 @@ class InventoryService:
         await self._session.commit()
         return await self.get_item(item_id, user_id)
 
-    async def reassign_set(self, item_id: str, user_id: uuid.UUID, new_set_id: str) -> InventoryItemResponse:
+    async def reassign_set(
+        self, item_id: str, user_id: uuid.UUID, new_set_id: str | None
+    ) -> InventoryItemResponse:
         item = await self._repo.get_by_id(item_id)
         if item is None or item.user_id != user_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")

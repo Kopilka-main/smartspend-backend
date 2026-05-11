@@ -124,7 +124,7 @@ class ReplaceRequest(CamelModel):
 
 
 class ReassignSetRequest(CamelModel):
-    set_id: str = Field(min_length=1)
+    set_id: str | None = None
 
 
 class InventoryGroupResponse(CamelModel):
