@@ -377,11 +377,6 @@ class ArticleService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
         if a.author_id != user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your article")
-        if a.status == "published":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Published articles cannot be edited",
-            )
 
         updates: dict = {}
         if data.title is not None:

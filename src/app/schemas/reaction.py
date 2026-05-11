@@ -6,7 +6,7 @@ from src.app.schemas.base import CamelModel
 
 
 class ReactionCreate(CamelModel):
-    target_type: str = Field(pattern="^(article|set|comment)$")
+    target_type: str = Field(pattern="^(article|set|comment|article_comment|set_comment|promo_comment|deposit_comment)$")
     target_id: str = Field(max_length=30)
     type: str = Field(max_length=10)
 
