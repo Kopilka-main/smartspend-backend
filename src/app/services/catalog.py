@@ -144,6 +144,8 @@ def _set_to_response(
         )
         for i in (s.items or [])
     ]
+    items_list = list(s.items or [])
+    computed_monthly = sum(int(_compute_monthly(i)) for i in items_list)
     photos = [
         SetPhotoResponse(id=p.id, url=p.url, file_name=p.file_name, position=p.position, created_at=p.created_at)
         for p in (s.photos or [])
@@ -157,9 +159,9 @@ def _set_to_response(
         color=s.color,
         title=s.title,
         description=s.description,
-        amount=s.amount,
+        amount=computed_monthly or s.amount,
         amount_label=s.amount_label,
-        monthly=s.monthly,
+        monthly=computed_monthly or s.monthly,
         full_cost=s.full_cost,
         period=s.period,
         users_count=s.users_count,
@@ -212,6 +214,7 @@ def _set_to_list_item(
         )
         for i in (s.items or [])
     ]
+    computed_monthly = sum(int(_compute_monthly(i)) for i in (s.items or []))
     return SetListItem(
         id=s.id,
         source=s.source,
@@ -221,9 +224,9 @@ def _set_to_list_item(
         color=s.color,
         title=s.title,
         description=s.description,
-        amount=s.amount,
+        amount=computed_monthly or s.amount,
         amount_label=s.amount_label,
-        monthly=s.monthly,
+        monthly=computed_monthly or s.monthly,
         full_cost=s.full_cost,
         period=s.period,
         users_count=s.users_count,
@@ -483,8 +486,18 @@ class CatalogService:
             self._session.expire_all()
             refreshed = await self._repo.get_by_id(set_id)
             total = sum(int(_compute_monthly(i)) for i in (refreshed.items or []))
-            stmt = sa_update(Set).where(Set.id == set_id).values(amount=total, amount_label="руб / месяц")
+            stmt = (
+                sa_update(Set).where(Set.id == set_id).values(amount=total, monthly=total, amount_label="руб / месяц")
+            )
             await self._session.execute(stmt)
+
+            from src.app.models.envelope import Envelope as EnvelopeModel
+
+            await self._session.execute(
+                sa_update(EnvelopeModel)
+                .where(EnvelopeModel.set_id == set_id)
+                .values(amount=total, items_count=len(refreshed.items or []))
+            )
 
         if data.photo_ids is not None:
             upload_svc = UploadService(self._session)
