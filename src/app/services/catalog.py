@@ -70,9 +70,6 @@ def _compute_monthly(item) -> Decimal:
         q = Decimal(str(qty)) if qty else Decimal("1")
         return round((Decimal(bp) * q) / (Decimal(py) * 12), 2)
 
-    if price > 0:
-        return Decimal(price)
-
     return Decimal("0")
 
 
