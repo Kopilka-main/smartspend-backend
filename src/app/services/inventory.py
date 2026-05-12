@@ -431,6 +431,7 @@ class InventoryService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
         await self._repo.update_fields(item_id, set_id=new_set_id)
         await self._session.commit()
+        self._session.expire(item)
         return await self.get_item(item_id, user_id)
 
     async def delete_item(self, item_id: str, user_id: uuid.UUID) -> None:
