@@ -29,22 +29,76 @@
     <div id="result" class="mt-4"></div>
 
     <div class="mt-4">
-      <h5>Формат полей</h5>
-      <table class="table table-sm table-bordered">
-        <thead><tr><th>Поле</th><th>Формат</th><th>Пример</th></tr></thead>
-        <tbody>
-          <tr><td>id</td><td>уникальная строка</td><td>tbank_black</td></tr>
-          <tr><td>cashback / rates</td><td>JSON объект</td><td>{"продукты": 1, "рестораны": 5}</td></tr>
-          <tr><td>conditions / tags</td><td>через запятую</td><td>премиальный, кэшбек рублями</td></tr>
-          <tr><td>is_active / replenishment</td><td>да / нет</td><td>да</td></tr>
-          <tr><td>цвета</td><td>HEX</td><td>#FFDD2D</td></tr>
-          <tr><td>grace_days / fee</td><td>число</td><td>100</td></tr>
-        </tbody>
-      </table>
-      <p class="text-muted">Первая строка файла — заголовки (не менять). Вторая строка в шаблоне — подсказки (удалить перед загрузкой или оставить, она пропустится если id пустой).</p>
+      <h5>Поля для выбранной сущности</h5>
+      <div id="fields-table"></div>
+      <p class="text-muted mt-2">Строка 1 — заголовки. Строка 2 — подсказки. Строка 3 — пример. Ваши данные — с 4-й строки (или удалите строки 2-3 и пишите со 2-й).</p>
     </div>
   </div>
 </div>
+
+<script>
+const fields = {
+  cards: [
+    ['id','уникальный id','tbank_black'],
+    ['bank_name','название банка','Т-Банк'],
+    ['bank_color','цвет фона HEX','#FFDD2D'],
+    ['bank_text_color','цвет текста HEX','#000000'],
+    ['bank_abbr','аббревиатура','ТБ'],
+    ['name','название карты','Т-Блэк'],
+    ['card_type','debit / credit','debit'],
+    ['cashback','JSON {категория: %}','{"продукты":1}'],
+    ['cashback_note','примечание','До 30%'],
+    ['grace_days','дней без %','0'],
+    ['fee','руб/мес','0'],
+    ['fee_base','руб/год','99'],
+    ['conditions','через запятую','премиальный'],
+    ['tags','через запятую','дебетовая'],
+    ['url','ссылка','https://...'],
+    ['is_active','да / нет','да'],
+  ],
+  deposits: [
+    ['id','уникальный id','tbank_priv'],
+    ['bank_name','название банка','Т-Банк'],
+    ['bank_color','цвет фона HEX','#FFDD2D'],
+    ['bank_text_color','цвет текста HEX','#000000'],
+    ['bank_abbr','аббревиатура','ТБ'],
+    ['name','название вклада','Т-Привилегия'],
+    ['rates','JSON {мес: ставка}','{"3":"22.5"}'],
+    ['min_amount','мин сумма руб','50000'],
+    ['max_amount','макс сумма руб',''],
+    ['freq','end / monthly','end'],
+    ['replenishment','да / нет','нет'],
+    ['withdrawal','да / нет','нет'],
+    ['conditions','через запятую','премиальный'],
+    ['tags','через запятую','вклад'],
+    ['is_active','да / нет','да'],
+  ],
+  companies: [
+    ['id','уникальный id','yandex'],
+    ['name','название','Яндекс'],
+    ['abbr','аббревиатура','Я'],
+    ['color','цвет HEX','#FC3F1D'],
+    ['category_id','id категории','tech'],
+    ['description','описание','Технологическая компания'],
+    ['promo_types','через запятую','скидка, кэшбек'],
+    ['is_active','да / нет','да'],
+  ],
+};
+
+function renderFields() {
+  const entity = document.querySelector('[name=entity]').value;
+  const rows = fields[entity];
+  let html = '<table class="table table-sm table-bordered"><thead><tr><th>Колонка</th><th>Поле</th><th>Формат</th><th>Пример</th></tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    html += `<tr><td>${String.fromCharCode(65+i)}</td><td>${r[0]}</td><td>${r[1]}</td><td><code>${r[2]}</code></td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('fields-table').innerHTML = html;
+}
+
+document.querySelector('[name=entity]').addEventListener('change', renderFields);
+renderFields();
+</script>
 
 <script>
 document.getElementById("import-form").addEventListener("submit", async (e) => {
