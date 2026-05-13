@@ -27,6 +27,22 @@
       <button type="submit" class="btn btn-primary">Загрузить</button>
     </form>
     <div id="result" class="mt-4"></div>
+
+    <div class="mt-4">
+      <h5>Формат полей</h5>
+      <table class="table table-sm table-bordered">
+        <thead><tr><th>Поле</th><th>Формат</th><th>Пример</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>уникальная строка</td><td>tbank_black</td></tr>
+          <tr><td>cashback / rates</td><td>JSON объект</td><td>{"продукты": 1, "рестораны": 5}</td></tr>
+          <tr><td>conditions / tags</td><td>через запятую</td><td>премиальный, кэшбек рублями</td></tr>
+          <tr><td>is_active / replenishment</td><td>да / нет</td><td>да</td></tr>
+          <tr><td>цвета</td><td>HEX</td><td>#FFDD2D</td></tr>
+          <tr><td>grace_days / fee</td><td>число</td><td>100</td></tr>
+        </tbody>
+      </table>
+      <p class="text-muted">Первая строка файла — заголовки (не менять). Вторая строка в шаблоне — подсказки (удалить перед загрузкой или оставить, она пропустится если id пустой).</p>
+    </div>
   </div>
 </div>
 
