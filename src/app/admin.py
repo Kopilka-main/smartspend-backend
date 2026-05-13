@@ -2,6 +2,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette_admin.auth import AdminUser, AuthProvider
 from starlette_admin.contrib.sqla import Admin, ModelView
+from starlette_admin.views import CustomView
 
 from src.app.core.config import settings
 from src.app.core.database import engine
@@ -50,6 +51,7 @@ def setup_admin(app):
         title="SmartSpend Admin",
         base_url="/api/admin",
         auth_provider=SmartSpendAuth(login_path="/login", logout_path="/logout"),
+        templates_dir="src/app/templates/admin",
     )
 
     admin.add_view(ModelView(User, icon="fa fa-users", label="Пользователи"))
@@ -61,5 +63,6 @@ def setup_admin(app):
     admin.add_view(ModelView(Company, icon="fa fa-building", label="Компании"))
     admin.add_view(ModelView(Promo, icon="fa fa-tag", label="Промо"))
     admin.add_view(ModelView(Notification, icon="fa fa-bell", label="Уведомления"))
+    admin.add_view(CustomView(label="Импорт Excel", icon="fa fa-upload", path="/import", template_path="import.html"))
 
     admin.mount_to(app)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from src.app.api.v1.admin_import import router as admin_import_router
 from src.app.api.v1.articles import router as articles_router
 from src.app.api.v1.auth import router as auth_router
 from src.app.api.v1.cards import router as cards_router
@@ -35,3 +36,4 @@ api_router.include_router(cards_router)
 api_router.include_router(companies_router)
 api_router.include_router(promos_router)
 api_router.include_router(uploads_router)
+api_router.include_router(admin_import_router)
