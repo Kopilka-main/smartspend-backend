@@ -91,6 +91,8 @@ DEPOSIT = EntityConfig(
         Col("M", "conditions", FieldType.STR_ARRAY),
         Col("N", "tags", FieldType.STR_ARRAY),
         Col("O", "is_active", FieldType.BOOL),
+        Col("P", "bank_logo_url", FieldType.STR),
+        Col("Q", "ear", FieldType.JSON),
     ],
 )
 
@@ -106,6 +108,7 @@ COMPANY = EntityConfig(
         Col("F", "description", FieldType.STR),
         Col("G", "promo_types", FieldType.STR_ARRAY),
         Col("H", "is_active", FieldType.BOOL),
+        Col("I", "logo_url", FieldType.STR),
     ],
 )
 

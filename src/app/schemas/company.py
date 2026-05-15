@@ -11,6 +11,7 @@ class CompanyResponse(CamelModel):
     category_id: str | None = None
     category_name: str | None = None
     description: str | None = None
+    logo_url: str | None = None
     promo_types: list[str] | None = None
 
 

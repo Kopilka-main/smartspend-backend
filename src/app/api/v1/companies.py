@@ -13,7 +13,7 @@ async def list_companies(
     session: Session,
     search: str | None = Query(None, alias="q"),
     category_id: str | None = Query(None, alias="categoryId"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     service = CompanyService(session)
