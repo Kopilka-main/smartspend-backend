@@ -16,6 +16,9 @@ class Promo(Base):
     company_id: Mapped[str | None] = mapped_column(
         String(30), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True
     )
+    partner_company_id: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True
+    )
     category_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     author_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

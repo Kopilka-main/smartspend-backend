@@ -11,6 +11,7 @@ class CardResponse(CamelModel):
     bank_color: str
     bank_text_color: str
     bank_abbr: str | None = None
+    bank_logo_url: str | None = None
     name: str
     card_type: str
     cashback: dict | None = None

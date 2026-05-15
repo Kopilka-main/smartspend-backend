@@ -38,6 +38,7 @@ class PromoResponse(CamelModel):
     is_active: bool
     created_at: datetime
     company: CompanyResponse | None = None
+    partner_company: CompanyResponse | None = None
 
 
 class PromoCreate(CamelModel):

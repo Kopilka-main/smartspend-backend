@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from io import BytesIO
 from typing import Any
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.app.models.card import Card
 from src.app.models.company import Company
 from src.app.models.deposit import Deposit
+from src.app.models.promo import Promo
 
 
 class FieldType(str, Enum):
@@ -19,6 +21,7 @@ class FieldType(str, Enum):
     BOOL = "bool"
     JSON = "json"
     STR_ARRAY = "str_array"
+    DATETIME = "datetime"
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,10 @@ CARD = EntityConfig(
         Col("N", "tags", FieldType.STR_ARRAY),
         Col("O", "url", FieldType.STR),
         Col("P", "is_active", FieldType.BOOL),
+        Col("Q", "bank_logo_url", FieldType.STR),
+        Col("R", "bonus_type", FieldType.STR),
+        Col("S", "bonus_system", FieldType.STR),
+        Col("T", "bonus_desc", FieldType.STR),
     ],
 )
 
@@ -112,10 +119,33 @@ COMPANY = EntityConfig(
     ],
 )
 
+PROMO = EntityConfig(
+    model=Promo,
+    id_field="id",
+    columns=[
+        Col("A", "id", FieldType.INT, required=True),
+        Col("B", "type", FieldType.STR, required=True),
+        Col("C", "company_id", FieldType.STR),
+        Col("D", "category_id", FieldType.STR),
+        Col("E", "author_id", FieldType.STR),
+        Col("F", "title", FieldType.STR),
+        Col("G", "text", FieldType.STR, required=True),
+        Col("H", "code", FieldType.STR),
+        Col("I", "url", FieldType.STR),
+        Col("J", "source_url", FieldType.STR),
+        Col("K", "promo_filter", FieldType.STR),
+        Col("L", "conditions", FieldType.STR_ARRAY),
+        Col("M", "expires_at", FieldType.DATETIME),
+        Col("N", "is_active", FieldType.BOOL),
+        Col("O", "partner_company_id", FieldType.STR),
+    ],
+)
+
 CONFIGS: dict[str, EntityConfig] = {
     "cards": CARD,
     "deposits": DEPOSIT,
     "companies": COMPANY,
+    "promos": PROMO,
 }
 
 
@@ -141,6 +171,13 @@ def _parse(value: Any, t: FieldType) -> Any:
         if text in ("0", "false", "нет", "no", ""):
             return False
         raise ValueError(f"bad boolean: {value}")
+    if t is FieldType.DATETIME:
+        if isinstance(value, datetime):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        return datetime.fromisoformat(text)
     if t is FieldType.JSON:
         if isinstance(value, (dict, list)):
             return value

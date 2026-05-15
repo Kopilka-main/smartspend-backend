@@ -25,7 +25,7 @@ async def list_promos(
     promo_filter: str | None = Query(None, alias="promoFilter"),
     search: str | None = Query(None, alias="q"),
     sort: str = Query("newest"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     user_id = current_user.id if current_user else None
