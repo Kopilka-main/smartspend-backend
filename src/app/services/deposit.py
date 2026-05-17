@@ -39,26 +39,19 @@ class DepositService:
         return best
 
     def _calc_income(self, deposit: Deposit, amount: float, months: int) -> tuple[float, float]:
-        rates = deposit.rates or {}
-        raw = rates.get(str(months))
+        # доход = заранее рассчитанный коэффициент income_coef[срок] × сумма
+        coefs = deposit.income_coef or {}
+        raw = coefs.get(str(months))
         if raw is None:
             return 0.0, 0.0
         try:
-            rate = float(raw)
+            coef = float(raw)
         except (ValueError, TypeError):
             return 0.0, 0.0
         if deposit.max_amount is not None and amount > deposit.max_amount:
             amount = deposit.max_amount
-        if deposit.freq == "monthly":
-            monthly_rate = rate / 100 / 12
-            total = amount
-            for _ in range(months):
-                total += total * monthly_rate
-            income = round(total - amount, 2)
-            total_amount = round(total, 2)
-        else:
-            income = round(amount * (rate / 100) * (months / 12), 2)
-            total_amount = round(amount + income, 2)
+        income = round(amount * coef, 2)
+        total_amount = round(amount + income, 2)
         return income, total_amount
 
     def _to_response(self, d: Deposit, amount: float | None = None, months: int | None = None) -> DepositResponse:
@@ -70,9 +63,6 @@ class DepositService:
         return DepositResponse(
             id=d.id,
             bank_name=d.bank_name,
-            bank_color=d.bank_color,
-            bank_text_color=d.bank_text_color,
-            bank_abbr=d.bank_abbr,
             bank_logo_url=d.bank_logo_url,
             name=d.name,
             rates=d.rates,

@@ -152,9 +152,32 @@ class ArticleRepository:
         await self._session.refresh(link)
         return link
 
-    async def unlink_from_set(self, article_id: str, user_id: uuid.UUID) -> None:
+    async def get_set_link(self, article_id: str, user_id: uuid.UUID, set_id: str) -> ArticleSetLink | None:
+        return await self._session.get(ArticleSetLink, (article_id, user_id, set_id))
+
+    async def unlink_from_set(self, article_id: str, user_id: uuid.UUID, set_id: str | None = None) -> None:
         stmt = delete(ArticleSetLink).where(
             ArticleSetLink.article_id == article_id,
             ArticleSetLink.user_id == user_id,
         )
+        if set_id is not None:
+            stmt = stmt.where(ArticleSetLink.set_id == set_id)
         await self._session.execute(stmt)
+
+    async def get_attached_set_ids(self, article_id: str, user_id: uuid.UUID) -> list[str]:
+        """Наборы, к которым данный пользователь прикрепил статью."""
+        stmt = select(ArticleSetLink.set_id).where(
+            ArticleSetLink.article_id == article_id,
+            ArticleSetLink.user_id == user_id,
+        )
+        result = await self._session.execute(stmt)
+        return [r[0] for r in result.all()]
+
+    async def list_set_link_article_ids(self, set_id: str, user_id: uuid.UUID) -> list[str]:
+        """ID статей, прикреплённых пользователем к конкретному набору."""
+        stmt = select(ArticleSetLink.article_id).where(
+            ArticleSetLink.set_id == set_id,
+            ArticleSetLink.user_id == user_id,
+        )
+        result = await self._session.execute(stmt)
+        return [r[0] for r in result.all()]

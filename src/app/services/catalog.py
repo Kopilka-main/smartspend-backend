@@ -33,6 +33,7 @@ from src.app.schemas.catalog import (
 )
 from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
+from src.app.services.notification import queue_notification
 from src.app.services.upload import UploadService
 
 
@@ -236,6 +237,7 @@ def _set_to_list_item(
         tags=_build_set_tags(s),
         reactions=reactions or [],
         author=_author_info(s.author, fallback_source=s.source),
+        parent_set_id=s.parent_set_id,
         is_bookmarked=is_bookmarked,
         created_at=s.created_at,
     )
@@ -573,6 +575,42 @@ class CatalogService:
             reply_to_id=data.reply_to_id,
         )
         comment = await self._repo.add_comment(comment)
+
+        snippet = data.text.strip()
+        if len(snippet) > 80:
+            snippet = snippet[:80].rstrip() + "…"
+
+        # уведомление автору набора о новом комментарии
+        if s.author_id and s.author_id != user.id:
+            queue_notification(
+                self._session,
+                user_id=s.author_id,
+                type="comment",
+                title="Новый комментарий",
+                description=f"{user.display_name} к набору «{s.title}»: «{snippet}»",
+                author_id=user.id,
+                set_id=s.id,
+                set_title=s.title,
+                payload=f"/sets/{s.id}?comment={comment.id}",
+            )
+        # уведомление автору комментария об ответе на него
+        reply_target_id = data.reply_to_id or data.parent_id
+        if reply_target_id:
+            rt = await self._session.get(SetComment, reply_target_id)
+            if rt and rt.user_id and rt.user_id not in (user.id, s.author_id):
+                thread_id = rt.parent_id or rt.id
+                queue_notification(
+                    self._session,
+                    user_id=rt.user_id,
+                    type="reply",
+                    title="Ответ на комментарий",
+                    description=f"{user.display_name} ответил на ваш комментарий: «{snippet}»",
+                    author_id=user.id,
+                    set_id=s.id,
+                    set_title=s.title,
+                    payload=f"/sets/{s.id}?comment={thread_id}",
+                )
+
         await self._session.commit()
         reply_to = None
         if comment.reply_to_id:

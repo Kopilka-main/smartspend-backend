@@ -112,21 +112,27 @@ def _item_to_response(
             days_since = (date.today() - item.last_bought).days
             used = daily_use * Decimal(max(days_since, 0))
             remaining_qty = max(qty - used, Decimal(0))
-            if qty > 0:
-                remaining_percent = max(0, min(100, int(remaining_qty * 100 / qty)))
             if daily_use > 0:
                 remaining_days = int(remaining_qty / daily_use)
         elif qty > 0 and daily_use > 0:
             remaining_qty = qty
-            remaining_percent = 100
             remaining_days = int(qty / daily_use)
         else:
             remaining_qty = qty
-            remaining_percent = 100 if qty > 0 else 0
             remaining_days = None
 
-        if daily_use > 0 and price > 0 and qty > 0:
-            monthly_cost = math.ceil(float(daily_use * DAYS_PER_MONTH * Decimal(price) / qty))
+        # Запас в процентах считается от месячной потребности:
+        # месячный запас = 100%
+        monthly_need_qty = daily_use * DAYS_PER_MONTH
+        rq = remaining_qty if remaining_qty is not None else Decimal(0)
+        if monthly_need_qty > 0:
+            remaining_percent = max(0, min(100, int(rq * 100 / monthly_need_qty)))
+        else:
+            remaining_percent = 100 if rq > 0 else 0
+
+        # Стоимость/мес = расход в месяц × цена за единицу (не зависит от остатка)
+        if daily_use > 0 and price > 0:
+            monthly_cost = math.ceil(float(daily_use * DAYS_PER_MONTH * Decimal(price)))
 
     monthly_need: Decimal | None = None
     if item.type == "consumable" and daily_use > 0:
@@ -157,12 +163,18 @@ def _item_to_response(
         elif price > 0:
             residual_percent = 100
             residual_value = price
-            remaining_percent = 100
-            if wear_wk:
-                remaining_days = wear_wk * 7
+            if item.purchase_date is None:
+                # Вещь ещё не куплена — запас 0, позиция ждёт покупки
+                remaining_percent = 0
+                remaining_days = None
+            else:
+                remaining_percent = 100
+                if wear_wk:
+                    remaining_days = wear_wk * 7
 
-    if qty > 0:
-        price_per_unit = Decimal(price) / qty
+    # Цена в позиции хранится как цена за единицу
+    if price > 0:
+        price_per_unit = Decimal(price)
 
     if item.paused:
         item_status = "paused"
@@ -170,6 +182,15 @@ def _item_to_response(
         if (remaining_days is not None and remaining_days <= 0) or qty == 0 or item.qty is None:
             item_status = "urgent"
         elif remaining_days is not None and remaining_days <= 7:
+            item_status = "soon"
+    elif item.type == "wear":
+        if item.purchase_date is None:
+            # Не куплена — ожидает покупки
+            item_status = "urgent"
+        elif remaining_days is not None and remaining_days <= 0:
+            # Срок службы истёк — пора менять
+            item_status = "urgent"
+        elif remaining_days is not None and remaining_days <= 30:
             item_status = "soon"
     return InventoryItemResponse(
         id=item.id,
@@ -386,15 +407,15 @@ class InventoryService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Item is not frozen/paused")
 
         updates: dict = {"paused": False}
-        act_date = data.purchase_date or date.today()
         if item.type == "consumable":
-            updates["last_bought"] = act_date
+            updates["last_bought"] = data.purchase_date or date.today()
             if data.qty is not None:
                 updates["qty"] = data.qty
             if data.price is not None:
                 updates["price"] = data.price
         elif item.type == "wear":
-            updates["purchase_date"] = act_date
+            # Дата покупки необязательна: без неё позиция уходит в «Ожидает покупки»
+            updates["purchase_date"] = data.purchase_date
             if data.price is not None:
                 updates["price"] = data.price
 

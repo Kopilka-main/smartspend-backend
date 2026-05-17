@@ -83,6 +83,7 @@ class ArticleResponse(CamelModel):
     linked_set_ids: list[str] | None = None
     linked_set_title: str | None = None
     linked_sets: list[LinkedSetInfo] = []
+    attached_set_ids: list[str] = []
     set_link: SetLinkCard | None = None
     blocks: list[ArticleBlockResponse] = []
     photos: list[ArticlePhotoResponse] = []

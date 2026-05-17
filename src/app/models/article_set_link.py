@@ -16,6 +16,6 @@ class ArticleSetLink(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     set_id: Mapped[str] = mapped_column(
-        String(20), ForeignKey("sets.id", ondelete="CASCADE"), nullable=False, index=True
+        String(20), ForeignKey("sets.id", ondelete="CASCADE"), primary_key=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

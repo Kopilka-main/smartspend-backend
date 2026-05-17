@@ -111,7 +111,8 @@ class InventoryItemUpdate(CamelModel):
 
 class ActivateItemRequest(CamelModel):
     purchase_date: date | None = None
-    qty: Decimal | None = Field(None, gt=0)
+    # Остаток может быть 0 — позиция запускается и уходит в «Ожидает покупки»
+    qty: Decimal | None = Field(None, ge=0)
     price: int | None = Field(None, ge=0)
 
 

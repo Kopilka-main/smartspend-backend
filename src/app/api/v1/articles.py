@@ -135,9 +135,14 @@ async def link_to_set(article_id: str, body: ArticleSetLinkCreate, user: Current
 
 
 @router.delete("/{article_id}/link-set", response_model=ApiResponse[None])
-async def unlink_from_set(article_id: str, user: CurrentUser, session: Session):
+async def unlink_from_set(
+    article_id: str,
+    user: CurrentUser,
+    session: Session,
+    set_id: str | None = Query(None, alias="setId"),
+):
     service = ArticleService(session)
-    await service.unlink_from_set(article_id, user)
+    await service.unlink_from_set(article_id, user, set_id)
     return ApiResponse(data=None)
 
 

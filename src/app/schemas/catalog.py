@@ -117,6 +117,7 @@ class SetListItem(CamelModel):
     reactions: list[ReactionCount] = []
     author: AuthorInfo | None = None
     parent_set: ParentSetInfo | None = None
+    parent_set_id: str | None = None
     is_bookmarked: bool = False
     created_at: datetime
 
