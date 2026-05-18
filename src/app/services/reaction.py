@@ -10,9 +10,12 @@ from src.app.models.article_comment import ArticleComment
 from src.app.models.deposit_comment import DepositComment
 from src.app.models.enums import ReactionTarget
 from src.app.models.promo import PromoComment
+from src.app.models.set import Set
 from src.app.models.set_comment import SetComment
+from src.app.models.user import User
 from src.app.repositories.reaction import ReactionRepository
 from src.app.schemas.reaction import ReactionCreate, ReactionResponse
+from src.app.services.notification import queue_notification
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,8 @@ class ReactionService:
             data.type,
         )
         await self._sync_counts(data.target_type, data.target_id)
+        if data.type == "like":
+            await self._notify_like(user_id, data.target_type, data.target_id)
         await self._session.commit()
 
         return ReactionResponse(
@@ -67,6 +72,66 @@ class ReactionService:
             target_id=reaction.target_id,
             type=reaction.type,
             created_at=reaction.created_at,
+        )
+
+    async def _load_comment(self, target_type: str, target_id: str):
+        """Загрузить комментарий по типу цели реакции (для определения автора)."""
+        try:
+            cid = int(target_id)
+        except (ValueError, TypeError):
+            return None
+        models = {
+            "article_comment": ArticleComment,
+            "set_comment": SetComment,
+            "promo_comment": PromoComment,
+            "deposit_comment": DepositComment,
+        }
+        model = models.get(target_type)
+        if model is not None:
+            return await self._session.get(model, cid)
+        for m in (ArticleComment, SetComment, PromoComment, DepositComment):
+            found = await self._session.get(m, cid)
+            if found is not None:
+                return found
+        return None
+
+    async def _notify_like(self, actor_id: uuid.UUID, target_type: str, target_id: str) -> None:
+        """Уведомить владельца контента о новом лайке."""
+        owner_id: uuid.UUID | None = None
+        desc_what = ""
+        extra: dict = {}
+
+        if target_type == "article":
+            a = await self._session.get(Article, target_id)
+            if a is not None:
+                owner_id = a.author_id
+                desc_what = f"вашу статью «{a.title}»"
+                extra = {"article_id": a.id, "article_title": a.title, "payload": f"/articles/{a.id}"}
+        elif target_type == "set":
+            s = await self._session.get(Set, target_id)
+            if s is not None:
+                owner_id = s.author_id
+                desc_what = f"ваш набор «{s.title}»"
+                extra = {"set_id": s.id, "set_title": s.title, "payload": f"/sets/{s.id}"}
+        else:
+            comment = await self._load_comment(target_type, target_id)
+            if comment is not None:
+                owner_id = comment.user_id
+                desc_what = "ваш комментарий"
+
+        if owner_id is None or owner_id == actor_id:
+            return
+
+        actor = await self._session.get(User, actor_id)
+        name = actor.display_name if actor else "Пользователь"
+        queue_notification(
+            self._session,
+            user_id=owner_id,
+            type="like",
+            title="Новый лайк",
+            description=f"{name} оценил {desc_what}",
+            author_id=actor_id,
+            **extra,
         )
 
     async def get_user_reactions(self, user_id: uuid.UUID, target_type: str | None = None) -> list[ReactionResponse]:

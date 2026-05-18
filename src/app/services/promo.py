@@ -43,20 +43,26 @@ class PromoService:
         if cats is None:
             cats = await self._get_cat_names()
 
-        company = None
-        if promo.company_id:
-            c = await self._session.get(Company, promo.company_id)
-            if c:
-                company = CompanyResponse(
-                    id=c.id,
-                    name=c.name,
-                    abbr=c.abbr,
-                    color=c.color,
-                    category_id=c.category_id,
-                    category_name=cats.get(c.category_id) if c.category_id else None,
-                    description=c.description,
-                    promo_types=c.promo_types,
-                )
+        async def _company(company_id: str | None) -> CompanyResponse | None:
+            if not company_id:
+                return None
+            c = await self._session.get(Company, company_id)
+            if not c:
+                return None
+            return CompanyResponse(
+                id=c.id,
+                name=c.name,
+                abbr=c.abbr,
+                color=c.color,
+                category_id=c.category_id,
+                category_name=cats.get(c.category_id) if c.category_id else None,
+                description=c.description,
+                promo_types=c.promo_types,
+                logo_url=c.logo_url,
+            )
+
+        company = await _company(promo.company_id)
+        partner_company = await _company(promo.partner_company_id)
 
         comments_count = (
             await self._session.execute(select(sa_func.count(PromoComment.id)).where(PromoComment.promo_id == promo.id))
@@ -125,7 +131,131 @@ class PromoService:
             is_active=promo.is_active,
             created_at=promo.created_at,
             company=company,
+            partner_company=partner_company,
         )
+
+    def _company_response(self, c: Company, cats: dict[str, str]) -> CompanyResponse:
+        return CompanyResponse(
+            id=c.id,
+            name=c.name,
+            abbr=c.abbr,
+            color=c.color,
+            category_id=c.category_id,
+            category_name=cats.get(c.category_id) if c.category_id else None,
+            description=c.description,
+            promo_types=c.promo_types,
+            logo_url=c.logo_url,
+        )
+
+    async def _enrich_promos_bulk(
+        self,
+        promos: list[Promo],
+        cats: dict[str, str],
+        viewer_id: uuid.UUID | None = None,
+    ) -> list[PromoResponse]:
+        """Пакетное обогащение списка промо — без N+1 запросов на каждое промо."""
+        if not promos:
+            return []
+
+        promo_ids = [p.id for p in promos]
+
+        # компании (основная + партнёр) — одним запросом
+        comp_ids = {p.company_id for p in promos if p.company_id}
+        comp_ids |= {p.partner_company_id for p in promos if p.partner_company_id}
+        companies: dict[str, CompanyResponse] = {}
+        if comp_ids:
+            rows = (await self._session.execute(select(Company).where(Company.id.in_(comp_ids)))).scalars().all()
+            companies = {c.id: self._company_response(c, cats) for c in rows}
+
+        # количество комментариев — одним сгруппированным запросом
+        cc_rows = (
+            await self._session.execute(
+                select(PromoComment.promo_id, sa_func.count(PromoComment.id))
+                .where(PromoComment.promo_id.in_(promo_ids))
+                .group_by(PromoComment.promo_id)
+            )
+        ).all()
+        comment_counts = {pid: cnt for pid, cnt in cc_rows}
+
+        # голос текущего пользователя — одним запросом
+        my_votes: dict[int, str] = {}
+        if viewer_id:
+            mv_rows = (
+                await self._session.execute(
+                    select(PromoVote.promo_id, PromoVote.vote).where(
+                        PromoVote.promo_id.in_(promo_ids), PromoVote.user_id == viewer_id
+                    )
+                )
+            ).all()
+            my_votes = {pid: vote for pid, vote in mv_rows}
+
+        # история голосов — одним запросом, по 40 последних на промо
+        hist_rows = (
+            await self._session.execute(
+                select(PromoVote.promo_id, PromoVote.user_id, PromoVote.vote, PromoVote.created_at)
+                .where(PromoVote.promo_id.in_(promo_ids))
+                .order_by(PromoVote.created_at.desc())
+            )
+        ).all()
+        history: dict[int, list[PromoVoteEntry]] = {}
+        for pid, uid, vote, created in hist_rows:
+            entries = history.setdefault(pid, [])
+            if len(entries) < 40:
+                entries.append(PromoVoteEntry(user_id=str(uid), vote=vote, created_at=created))
+        for entries in history.values():
+            entries.reverse()
+
+        # авторы — по одному обогащению на уникального автора (не на каждое промо)
+        author_ids = {p.author_id for p in promos if p.author_id}
+        authors: dict[uuid.UUID, AuthorInfo] = {}
+        if author_ids:
+            users = (await self._session.execute(select(User).where(User.id.in_(author_ids)))).scalars().all()
+            for u in users:
+                fc = await FollowRepository(self._session).count_followers(u.id)
+                ac = await ArticleRepository(self._session).count_by_author(u.id)
+                _, sc = await CatalogRepository(self._session).list_by_author(u.id, limit=0, offset=0)
+                authors[u.id] = AuthorInfo(
+                    id=u.id,
+                    display_name=u.display_name,
+                    username=u.username,
+                    initials=u.initials,
+                    color=u.color,
+                    avatar_url=u.avatar_url,
+                    followers_count=fc,
+                    articles_count=ac,
+                    sets_count=sc,
+                )
+
+        return [
+            PromoResponse(
+                id=p.id,
+                type=p.type,
+                company_id=p.company_id,
+                category_id=p.category_id,
+                category_name=cats.get(p.category_id) if p.category_id else None,
+                author_id=str(p.author_id) if p.author_id else None,
+                author=authors.get(p.author_id) if p.author_id else None,
+                title=p.title,
+                text=p.text,
+                code=p.code,
+                channel=p.channel,
+                url=p.url,
+                source_url=p.source_url,
+                promo_filter=p.promo_filter,
+                conditions=p.conditions,
+                expires_at=p.expires_at,
+                votes_up=p.votes_up,
+                votes_down=p.votes_down,
+                comments_count=comment_counts.get(p.id, 0),
+                my_vote=my_votes.get(p.id),
+                vote_history=history.get(p.id, []),
+                is_active=p.is_active,
+                created_at=p.created_at,
+                company=companies.get(p.company_id) if p.company_id else None,
+                partner_company=companies.get(p.partner_company_id) if p.partner_company_id else None,
+            )
+            for p in promos
+        ]
 
     async def list_promos(
         self,
@@ -184,7 +314,7 @@ class PromoService:
             cutoff = now - timedelta(days=days)
             promos = [p for p in promos if p.created_at and p.created_at >= cutoff]
 
-        return [await self._enrich_promo(p, cats, user_id) for p in promos], total
+        return await self._enrich_promos_bulk(list(promos), cats, user_id), total
 
     async def get_promo(self, promo_id: int, viewer_id: uuid.UUID | None = None) -> PromoResponse:
         promo = await self._session.get(Promo, promo_id)

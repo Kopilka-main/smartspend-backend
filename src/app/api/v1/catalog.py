@@ -120,9 +120,10 @@ async def delete_comment(comment_id: int, user: CurrentUser, session: Session):
 
 
 @router.get("/{set_id}/articles", response_model=ApiResponse[list])
-async def get_set_articles(set_id: str, session: Session):
+async def get_set_articles(set_id: str, session: Session, current_user: OptionalUser):
     service = ArticleService(session)
-    items, _total = await service.list_published(linked_set_id=set_id)
+    user_id = current_user.id if current_user else None
+    items = await service.list_set_articles(set_id, user_id)
     return ApiResponse(data=items)
 
 

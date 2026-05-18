@@ -13,9 +13,7 @@ class Card(Base):
 
     id: Mapped[str] = mapped_column(String(20), primary_key=True)
     bank_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    bank_color: Mapped[str] = mapped_column(String(7), nullable=False)
-    bank_text_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#FFF")
-    bank_abbr: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    bank_logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     card_type: Mapped[str] = mapped_column(String(20), nullable=False)
     cashback: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

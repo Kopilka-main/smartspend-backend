@@ -3,7 +3,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func as sa_func
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,9 +35,7 @@ class CardService:
         return CardResponse(
             id=card.id,
             bank_name=card.bank_name,
-            bank_color=card.bank_color,
-            bank_text_color=card.bank_text_color,
-            bank_abbr=card.bank_abbr,
+            bank_logo_url=card.bank_logo_url,
             name=card.name,
             card_type=card.card_type,
             cashback=card.cashback,
@@ -59,10 +57,10 @@ class CardService:
 
     async def list_cards(
         self,
-        card_type: str | None = None,
-        bank_name: str | None = None,
+        card_types: list[str] | None = None,
+        banks: list[str] | None = None,
         search: str | None = None,
-        condition: str | None = None,
+        conditions: list[str] | None = None,
         scope: str = "all",
         sort: str = "cashback",
         spending: dict | None = None,
@@ -72,15 +70,17 @@ class CardService:
     ) -> tuple[list[CardResponse], int]:
         query = select(Card).where(Card.is_active.is_(True))
 
-        if card_type:
-            query = query.where(Card.card_type == card_type)
-        if bank_name:
-            query = query.where(Card.bank_name == bank_name)
+        if card_types:
+            query = query.where(Card.card_type.in_(card_types))
+        if banks:
+            query = query.where(Card.bank_name.in_(banks))
         if search:
             pattern = f"%{search}%"
             query = query.where(Card.bank_name.ilike(pattern) | Card.name.ilike(pattern))
-        if condition and condition != "all":
-            query = query.where(Card.conditions.any(condition))
+        if conditions:
+            # карта подходит, если её требования — подмножество выбранных фильтров;
+            # карты без условий (NULL/пустой массив) проходят при любом наборе
+            query = query.where(or_(Card.conditions.is_(None), Card.conditions.contained_by(conditions)))
         if scope == "mine" and user_id:
             sub = select(UserCompany.company_id).where(UserCompany.user_id == user_id)
             bank_sub = select(Company.name).where(Company.id.in_(sub))

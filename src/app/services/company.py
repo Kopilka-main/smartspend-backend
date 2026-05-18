@@ -27,6 +27,7 @@ class CompanyService:
             category_id=c.category_id,
             category_name=cats.get(c.category_id) if c.category_id else None,
             description=c.description,
+            logo_url=c.logo_url,
             promo_types=c.promo_types,
         )
 

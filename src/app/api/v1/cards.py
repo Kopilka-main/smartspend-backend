@@ -27,6 +27,13 @@ async def list_card_banks(session: Session, q: str | None = Query(None)):
     return ApiResponse(data=[r[0] for r in result.all()])
 
 
+def _csv(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    items = [x.strip() for x in raw.split(",") if x.strip()]
+    return items or None
+
+
 @router.get("", response_model=ApiResponse[list[CardResponse]])
 async def list_cards(
     session: Session,
@@ -48,10 +55,10 @@ async def list_cards(
 
     service = CardService(session)
     items, total = await service.list_cards(
-        card_type=card_type,
-        bank_name=bank_name,
+        card_types=_csv(card_type),
+        banks=_csv(bank_name),
         search=search,
-        condition=condition,
+        conditions=_csv(condition),
         scope=scope,
         sort=sort,
         spending=spending if spending else None,

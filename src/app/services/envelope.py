@@ -59,17 +59,10 @@ class EnvelopeService:
     def _compute_monthly_cost(item) -> Decimal:
         price = Decimal(item.price or 0)
         if item.type == "consumable":
+            # Стоимость/мес = расход в месяц × цена за единицу (не зависит от остатка)
             daily = item.daily_use or Decimal(0)
-            qty = item.qty or Decimal(0)
-            if daily > 0 and qty > 0 and price > 0:
-                days_supply = qty / daily
-                if days_supply > 0:
-                    return round(price / (days_supply / Decimal("30.44")), 2)
-            bp = Decimal(item.base_price or 0)
-            py = item.period_years or Decimal(0)
-            if bp > 0 and py > 0:
-                q = qty if qty > 0 else Decimal(1)
-                return round((bp * q) / (py * 12), 2)
+            if daily > 0 and price > 0:
+                return round(daily * Decimal("30.44") * price, 2)
             return Decimal(0)
         bp = Decimal(item.base_price or 0)
         py = item.period_years or Decimal(0)
@@ -84,12 +77,11 @@ class EnvelopeService:
         rows = await self._repo.list_by_user(user_id)
         result = []
         for e, source in rows:
-            paused = await self._check_all_paused(user_id, e.set_id)
             items = await self._load_items(user_id, e.set_id)
             s = await self._session.get(Set, e.set_id)
             parent_id = s.parent_set_id if s else None
             result.append(
-                EnvelopeResponse.from_orm_obj(e, source=source, paused=paused, items=items, parent_set_id=parent_id)
+                EnvelopeResponse.from_orm_obj(e, source=source, paused=e.paused, items=items, parent_set_id=parent_id)
             )
         return result
 
@@ -112,12 +104,11 @@ class EnvelopeService:
             return None
         catalog_repo = CatalogRepository(self._session)
         s = await catalog_repo.get_by_id(set_id)
-        paused = await self._check_all_paused(user_id, set_id)
         items = await self._load_items(user_id, set_id)
         return EnvelopeResponse.from_orm_obj(
             envelope,
             source=s.source if s else None,
-            paused=paused,
+            paused=envelope.paused,
             items=items,
             parent_set_id=s.parent_set_id if s else None,
         )
@@ -263,6 +254,9 @@ class EnvelopeService:
                 item_id = f"inv_{set_id}_{idx}_{ts}"
                 bp = int(si.base_price) if si.base_price else (si.price or 0)
                 py = si.period_years or 0
+                is_consumable = si.item_type == "consumable"
+                # Расход в месяц у набора = qty → daily_use = qty / 30.44
+                daily = Decimal(str(si.qty)) / Decimal("30.44") if is_consumable and si.qty else None
                 inv_item = InventoryItem(
                     id=item_id,
                     user_id=user.id,
@@ -273,9 +267,10 @@ class EnvelopeService:
                     set_id=set_id,
                     is_extra=False,
                     paused=True,
-                    qty=si.qty if si.item_type == "consumable" else None,
-                    unit=si.unit if si.item_type == "consumable" else None,
-                    daily_use=si.daily_use if si.item_type == "consumable" else None,
+                    # Остаток (текущее количество) пользователь заполняет сам при активации
+                    qty=None,
+                    unit=si.unit if is_consumable else None,
+                    daily_use=daily,
                     last_bought=None,
                     wear_life_weeks=int(py * 52) if si.item_type == "wear" and py > 0 else None,
                     base_price=int(si.base_price) if si.base_price else None,
@@ -290,10 +285,9 @@ class EnvelopeService:
         stmt = sa_update(Set).where(Set.id == parent_id).values(users_count=Set.users_count + 1)
         await self._session.execute(stmt)
         await self._session.commit()
-        paused = await self._check_all_paused(user.id, set_id)
         items_resp = await self._load_items(user.id, set_id)
         return EnvelopeResponse.from_orm_obj(
-            envelope, source=s.source, paused=paused, items=items_resp, parent_set_id=s.parent_set_id
+            envelope, source=s.source, paused=envelope.paused, items=items_resp, parent_set_id=s.parent_set_id
         )
 
     async def remove_set_from_profile(self, user: User, set_id: str) -> None:
@@ -336,14 +330,6 @@ class EnvelopeService:
         row = result.scalar_one_or_none()
         return row if row else "g8"
 
-    async def _check_all_paused(self, user_id: uuid.UUID, set_id: str) -> bool:
-        stmt = select(InventoryItem.paused).where(InventoryItem.user_id == user_id, InventoryItem.set_id == set_id)
-        result = await self._session.execute(stmt)
-        statuses = result.scalars().all()
-        if not statuses:
-            return True
-        return all(statuses)
-
     async def toggle_pause(self, user: User, set_id: str, paused: bool) -> None:
         set_id = await self._resolve_user_set_id(user.id, set_id)
         envelope = await self._repo.find_by_user_set(user.id, set_id)
@@ -352,12 +338,8 @@ class EnvelopeService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Set not in your profile",
             )
-        stmt = (
-            sa_update(InventoryItem)
-            .where(InventoryItem.user_id == user.id, InventoryItem.set_id == set_id)
-            .values(paused=paused)
-        )
-        await self._session.execute(stmt)
+        # Пауза конверта — независимый статус, на позиции инвентаря не влияет
+        await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(paused=paused))
         await self._session.commit()
 
     async def update_scale(self, user: User, set_id: str, scale) -> EnvelopeResponse:
@@ -371,14 +353,13 @@ class EnvelopeService:
         await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(scale=new_scale))
         await self._session.commit()
         await self._session.refresh(envelope)
-        paused = await self._check_all_paused(user.id, set_id)
         catalog_repo = CatalogRepository(self._session)
         s = await catalog_repo.get_by_id(set_id)
         items_resp = await self._load_items(user.id, set_id)
         return EnvelopeResponse.from_orm_obj(
             envelope,
             source=s.source if s else None,
-            paused=paused,
+            paused=envelope.paused,
             items=items_resp,
             parent_set_id=s.parent_set_id if s else None,
         )
@@ -431,10 +412,9 @@ class EnvelopeService:
         await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(scale=Decimal("1.00")))
         await self._session.commit()
         await self._session.refresh(envelope)
-        paused = await self._check_all_paused(user.id, set_id)
         items_resp = await self._load_items(user.id, set_id)
         return EnvelopeResponse.from_orm_obj(
-            envelope, source=s.source, paused=paused, items=items_resp, parent_set_id=s.parent_set_id
+            envelope, source=s.source, paused=envelope.paused, items=items_resp, parent_set_id=s.parent_set_id
         )
 
     async def update_items(self, user: User, set_id: str, items: list[dict]) -> EnvelopeResponse:
@@ -447,48 +427,55 @@ class EnvelopeService:
         if s is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
 
-        inv_repo = InventoryRepository(self._session)
-        await inv_repo.delete_by_set_and_user(user.id, set_id)
+        # 1. Обновляем спецификацию позиций самого набора (сопоставление по названию)
+        payload_by_name = {it.get("name"): it for it in items}
+        for si in s.items or []:
+            it = payload_by_name.get(si.name)
+            if it is None:
+                continue
+            if it.get("qty") is not None:
+                si.qty = Decimal(str(it["qty"]))
+            bp = it.get("basePrice", it.get("base_price"))
+            if bp is not None:
+                si.base_price = int(float(bp))
+            py = it.get("periodYears", it.get("period_years")) or it.get("period")
+            if py is not None:
+                si.period_years = Decimal(str(py))
 
-        group_id = await self._resolve_group(s.category_id)
-        ts = int(time.time() * 1000)
-        inv_items: list[InventoryItem] = []
-        for idx, it in enumerate(items):
-            item_type = it.get("itemType") or it.get("type") or "consumable"
-            wl_weeks = it.get("wearLifeWeeks")
-            if wl_weeks is not None:
-                wl_weeks = int(float(wl_weeks))
-            if wl_weeks is None and it.get("periodYears"):
-                wl_weeks = int(float(it["periodYears"]) * 52)
-            inv_item = InventoryItem(
-                id=f"inv_{set_id}_{idx}_{ts}",
-                user_id=user.id,
-                group_id=group_id,
-                type=item_type,
-                name=it.get("name", ""),
-                price=int(float(it.get("price", 0) or 0)),
-                set_id=set_id,
-                is_extra=False,
-                paused=False,
-                qty=it.get("qty") if item_type == "consumable" else None,
-                unit=it.get("unit") if item_type == "consumable" else None,
-                daily_use=it.get("dailyUse"),
-                last_bought=None,
-                wear_life_weeks=wl_weeks if item_type == "wear" else None,
-                base_price=int(float(it["basePrice"])) if it.get("basePrice") is not None else None,
-                period_years=Decimal(str(it["periodYears"])) if it.get("periodYears") is not None else None,
-            )
-            inv_items.append(inv_item)
-        if inv_items:
-            await inv_repo.bulk_create(inv_items)
+        # 2. Обновляем позиции инвентаря на месте: расход и цену.
+        #    Остаток, пауза, фото, заметки пользователя сохраняются.
+        inv_result = await self._session.execute(
+            select(InventoryItem).where(InventoryItem.user_id == user.id, InventoryItem.set_id == set_id)
+        )
+        inv_by_name: dict[str, InventoryItem] = {}
+        for inv in inv_result.scalars().all():
+            inv_by_name.setdefault(inv.name, inv)
+        for si in s.items or []:
+            inv = inv_by_name.get(si.name)
+            if inv is None:
+                continue
+            inv.price = int(si.base_price) if si.base_price else (si.price or 0)
+            if si.base_price:
+                inv.base_price = int(si.base_price)
+            inv.period_years = si.period_years
+            if si.item_type == "consumable" and si.qty:
+                inv.daily_use = Decimal(str(si.qty)) / Decimal("30.44")
+
+        # 3. Пересчёт суммы конверта
+        total = 0
+        for si in s.items or []:
+            bp = si.base_price or 0
+            qty = si.qty or 1
+            py = si.period_years or 0
+            if py > 0:
+                total += int((bp * qty) / (py * 12))
 
         await self._session.execute(
-            sa_update(Envelope).where(Envelope.id == envelope.id).values(items_count=len(inv_items))
+            sa_update(Envelope).where(Envelope.id == envelope.id).values(amount=total, items_count=len(s.items or []))
         )
         await self._session.commit()
         await self._session.refresh(envelope)
-        paused = await self._check_all_paused(user.id, set_id)
         items_resp = await self._load_items(user.id, set_id)
         return EnvelopeResponse.from_orm_obj(
-            envelope, source=s.source, paused=paused, items=items_resp, parent_set_id=s.parent_set_id
+            envelope, source=s.source, paused=envelope.paused, items=items_resp, parent_set_id=s.parent_set_id
         )

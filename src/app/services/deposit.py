@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from sqlalchemy import func as sa_func
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.deposit import Deposit
@@ -39,18 +39,19 @@ class DepositService:
         return best
 
     def _calc_income(self, deposit: Deposit, amount: float, months: int) -> tuple[float, float]:
-        rates = deposit.rates or {}
-        rate = self._pick_rate(rates, months)
-        if deposit.freq == "monthly":
-            monthly_rate = rate / 100 / 12
-            total = amount
-            for _ in range(months):
-                total += total * monthly_rate
-            income = round(total - amount, 2)
-            total_amount = round(total, 2)
-        else:
-            income = round(amount * (rate / 100) * (months / 12), 2)
-            total_amount = round(amount + income, 2)
+        # доход = заранее рассчитанный коэффициент income_coef[срок] × сумма
+        coefs = deposit.income_coef or {}
+        raw = coefs.get(str(months))
+        if raw is None:
+            return 0.0, 0.0
+        try:
+            coef = float(raw)
+        except (ValueError, TypeError):
+            return 0.0, 0.0
+        if deposit.max_amount is not None and amount > deposit.max_amount:
+            amount = deposit.max_amount
+        income = round(amount * coef, 2)
+        total_amount = round(amount + income, 2)
         return income, total_amount
 
     def _to_response(self, d: Deposit, amount: float | None = None, months: int | None = None) -> DepositResponse:
@@ -62,11 +63,10 @@ class DepositService:
         return DepositResponse(
             id=d.id,
             bank_name=d.bank_name,
-            bank_color=d.bank_color,
-            bank_text_color=d.bank_text_color,
-            bank_abbr=d.bank_abbr,
+            bank_logo_url=d.bank_logo_url,
             name=d.name,
             rates=d.rates,
+            ear=d.ear,
             min_amount=d.min_amount,
             max_amount=d.max_amount,
             replenishment=d.replenishment,
@@ -87,8 +87,9 @@ class DepositService:
     async def list_deposits(
         self,
         search: str | None = None,
-        freq: str | None = None,
-        conditions: str | None = None,
+        banks: list[str] | None = None,
+        freq: list[str] | None = None,
+        conditions: list[str] | None = None,
         liquidity: list[str] | None = None,
         sort: str = "bank",
         amount: float | None = None,
@@ -100,15 +101,17 @@ class DepositService:
 
         if search:
             query = query.where(Deposit.bank_name.ilike(f"%{search}%"))
+        if banks:
+            query = query.where(Deposit.bank_name.in_(banks))
         if freq:
-            query = query.where(Deposit.freq == freq)
+            query = query.where(Deposit.freq.in_(freq))
         if liquidity:
-            if "replenishment" in liquidity and "no_replenishment" not in liquidity:
+            if "replenishment" in liquidity or "both" in liquidity:
                 query = query.where(Deposit.replenishment.is_(True))
-            elif "no_replenishment" in liquidity and "replenishment" not in liquidity:
-                query = query.where(Deposit.replenishment.is_(False))
+            if "withdrawal" in liquidity or "both" in liquidity:
+                query = query.where(Deposit.withdrawal.is_(True))
         if conditions:
-            query = query.where(Deposit.conditions.any(conditions))
+            query = query.where(or_(Deposit.conditions.is_(None), Deposit.conditions.contained_by(conditions)))
 
         count_q = query.with_only_columns(sa_func.count(Deposit.id))
         total = (await self._session.execute(count_q)).scalar() or 0
@@ -117,14 +120,18 @@ class DepositService:
         all_deposits = list(result.scalars().all())
 
         if months is not None:
-            all_deposits = [d for d in all_deposits if self._pick_rate(d.rates or {}, months) > 0]
+            all_deposits = [d for d in all_deposits if str(months) in (d.rates or {})]
+            total = len(all_deposits)
+
+        if amount is not None:
+            all_deposits = [d for d in all_deposits if d.min_amount is None or amount >= d.min_amount]
             total = len(all_deposits)
 
         items = [self._to_response(d, amount, months) for d in all_deposits]
 
         if sort == "rate":
             if months is not None:
-                items.sort(key=lambda x: self._pick_rate(x.rates or {}, months), reverse=True)
+                items.sort(key=lambda x: float((x.ear or {}).get(str(months)) or 0), reverse=True)
             else:
                 items.sort(key=lambda x: x.max_rate or 0, reverse=True)
         elif sort == "income" and amount is not None and months is not None:
@@ -230,22 +237,22 @@ class DepositService:
     async def chart(
         self,
         bank_names: list[str] | None = None,
-        freq: str | None = None,
-        conditions: str | None = None,
+        freq: list[str] | None = None,
+        conditions: list[str] | None = None,
         liquidity: list[str] | None = None,
     ) -> list[DepositChartPoint]:
         query = select(Deposit).where(Deposit.is_active.is_(True))
         if bank_names:
             query = query.where(Deposit.bank_name.in_(bank_names))
         if freq:
-            query = query.where(Deposit.freq == freq)
+            query = query.where(Deposit.freq.in_(freq))
         if conditions:
-            query = query.where(Deposit.conditions.any(conditions))
+            query = query.where(or_(Deposit.conditions.is_(None), Deposit.conditions.contained_by(conditions)))
         if liquidity:
-            if "replenishment" in liquidity and "no_replenishment" not in liquidity:
+            if "replenishment" in liquidity or "both" in liquidity:
                 query = query.where(Deposit.replenishment.is_(True))
-            elif "no_replenishment" in liquidity and "replenishment" not in liquidity:
-                query = query.where(Deposit.replenishment.is_(False))
+            if "withdrawal" in liquidity or "both" in liquidity:
+                query = query.where(Deposit.withdrawal.is_(True))
 
         result = await self._session.execute(query)
         deposits = result.scalars().all()
@@ -257,6 +264,11 @@ class DepositService:
             (4, "4 мес"),
             (5, "5 мес"),
             (6, "6 мес"),
+            (7, "7 мес"),
+            (8, "8 мес"),
+            (9, "9 мес"),
+            (10, "10 мес"),
+            (11, "11 мес"),
             (12, "1 год"),
             (18, "1.5 года"),
             (24, "2 года"),
@@ -267,8 +279,13 @@ class DepositService:
         for months, label in periods:
             best = 0.0
             for d in deposits:
-                rates = d.rates or {}
-                rate = self._pick_rate(rates, months)
+                raw = (d.rates or {}).get(str(months))
+                if raw is None:
+                    continue
+                try:
+                    rate = float(raw)
+                except (ValueError, TypeError):
+                    continue
                 if rate > best:
                     best = rate
             points.append(DepositChartPoint(months=months, label=label, max_rate=best))

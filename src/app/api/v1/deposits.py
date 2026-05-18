@@ -20,6 +20,7 @@ router = APIRouter(prefix="/deposits", tags=["deposits"])
 async def list_deposits(
     session: Session,
     search: str | None = Query(None, alias="q"),
+    banks: str | None = Query(None),
     freq: str | None = Query(None),
     conditions: str | None = Query(None),
     liquidity: str | None = Query(None),
@@ -30,11 +31,15 @@ async def list_deposits(
     offset: int = Query(0, ge=0),
 ):
     service = DepositService(session)
+    bank_list = [b.strip() for b in banks.split(",") if b.strip()] if banks else None
+    freq_list = [f.strip() for f in freq.split(",") if f.strip()] if freq else None
+    cond_list = [c.strip() for c in conditions.split(",") if c.strip()] if conditions else None
     liq_list = [v.strip() for v in liquidity.split(",") if v.strip()] if liquidity else None
     items, total = await service.list_deposits(
         search=search,
-        freq=freq,
-        conditions=conditions,
+        banks=bank_list,
+        freq=freq_list,
+        conditions=cond_list,
         liquidity=liq_list,
         sort=sort,
         amount=amount,
@@ -57,9 +62,11 @@ async def deposit_chart(
     liquidity: str | None = Query(None),
 ):
     bank_list = [b.strip() for b in banks.split(",") if b.strip()] if banks else None
+    freq_list = [f.strip() for f in freq.split(",") if f.strip()] if freq else None
+    cond_list = [c.strip() for c in conditions.split(",") if c.strip()] if conditions else None
     liq_list = [v.strip() for v in liquidity.split(",") if v.strip()] if liquidity else None
     service = DepositService(session)
-    return ApiResponse(data=await service.chart(bank_list, freq, conditions, liq_list))
+    return ApiResponse(data=await service.chart(bank_list, freq_list, cond_list, liq_list))
 
 
 @router.get("/banks", response_model=ApiResponse[list[str]])

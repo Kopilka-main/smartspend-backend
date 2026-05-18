@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from io import BytesIO
 from typing import Any
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.app.models.card import Card
 from src.app.models.company import Company
 from src.app.models.deposit import Deposit
+from src.app.models.promo import Promo
 
 
 class FieldType(str, Enum):
@@ -19,6 +21,7 @@ class FieldType(str, Enum):
     BOOL = "bool"
     JSON = "json"
     STR_ARRAY = "str_array"
+    DATETIME = "datetime"
 
 
 @dataclass(frozen=True)
@@ -55,20 +58,21 @@ CARD = EntityConfig(
     columns=[
         Col("A", "id", FieldType.STR, required=True),
         Col("B", "bank_name", FieldType.STR, required=True),
-        Col("C", "bank_color", FieldType.STR),
-        Col("D", "bank_text_color", FieldType.STR),
-        Col("E", "bank_abbr", FieldType.STR),
-        Col("F", "name", FieldType.STR, required=True),
-        Col("G", "card_type", FieldType.STR, required=True),
-        Col("H", "cashback", FieldType.JSON),
-        Col("I", "cashback_note", FieldType.STR),
-        Col("J", "grace_days", FieldType.INT),
-        Col("K", "fee", FieldType.INT),
-        Col("L", "fee_base", FieldType.INT),
-        Col("M", "conditions", FieldType.STR_ARRAY),
-        Col("N", "tags", FieldType.STR_ARRAY),
-        Col("O", "url", FieldType.STR),
-        Col("P", "is_active", FieldType.BOOL),
+        Col("C", "name", FieldType.STR, required=True),
+        Col("D", "card_type", FieldType.STR, required=True),
+        Col("E", "cashback", FieldType.JSON),
+        Col("F", "cashback_note", FieldType.STR),
+        Col("G", "grace_days", FieldType.INT),
+        Col("H", "fee", FieldType.INT),
+        Col("I", "fee_base", FieldType.INT),
+        Col("J", "conditions", FieldType.STR_ARRAY),
+        Col("K", "tags", FieldType.STR_ARRAY),
+        Col("L", "url", FieldType.STR),
+        Col("M", "is_active", FieldType.BOOL),
+        Col("N", "bank_logo_url", FieldType.STR),
+        Col("O", "bonus_type", FieldType.STR),
+        Col("P", "bonus_system", FieldType.STR),
+        Col("Q", "bonus_desc", FieldType.STR),
     ],
 )
 
@@ -78,19 +82,19 @@ DEPOSIT = EntityConfig(
     columns=[
         Col("A", "id", FieldType.STR, required=True),
         Col("B", "bank_name", FieldType.STR, required=True),
-        Col("C", "bank_color", FieldType.STR),
-        Col("D", "bank_text_color", FieldType.STR),
-        Col("E", "bank_abbr", FieldType.STR),
-        Col("F", "name", FieldType.STR, required=True),
-        Col("G", "rates", FieldType.JSON, required=True),
-        Col("H", "min_amount", FieldType.INT),
-        Col("I", "max_amount", FieldType.INT),
-        Col("J", "freq", FieldType.STR),
-        Col("K", "replenishment", FieldType.BOOL),
-        Col("L", "withdrawal", FieldType.BOOL),
-        Col("M", "conditions", FieldType.STR_ARRAY),
-        Col("N", "tags", FieldType.STR_ARRAY),
-        Col("O", "is_active", FieldType.BOOL),
+        Col("C", "name", FieldType.STR, required=True),
+        Col("D", "rates", FieldType.JSON, required=True),
+        Col("E", "min_amount", FieldType.INT),
+        Col("F", "max_amount", FieldType.INT),
+        Col("G", "freq", FieldType.STR),
+        Col("H", "replenishment", FieldType.BOOL),
+        Col("I", "withdrawal", FieldType.BOOL),
+        Col("J", "conditions", FieldType.STR_ARRAY),
+        Col("K", "tags", FieldType.STR_ARRAY),
+        Col("L", "is_active", FieldType.BOOL),
+        Col("M", "bank_logo_url", FieldType.STR),
+        Col("N", "ear", FieldType.JSON),
+        Col("O", "income_coef", FieldType.JSON),
     ],
 )
 
@@ -106,6 +110,29 @@ COMPANY = EntityConfig(
         Col("F", "description", FieldType.STR),
         Col("G", "promo_types", FieldType.STR_ARRAY),
         Col("H", "is_active", FieldType.BOOL),
+        Col("I", "logo_url", FieldType.STR),
+    ],
+)
+
+PROMO = EntityConfig(
+    model=Promo,
+    id_field="id",
+    columns=[
+        Col("A", "id", FieldType.INT, required=True),
+        Col("B", "type", FieldType.STR, required=True),
+        Col("C", "company_id", FieldType.STR),
+        Col("D", "category_id", FieldType.STR),
+        Col("E", "author_id", FieldType.STR),
+        Col("F", "title", FieldType.STR),
+        Col("G", "text", FieldType.STR, required=True),
+        Col("H", "code", FieldType.STR),
+        Col("I", "url", FieldType.STR),
+        Col("J", "source_url", FieldType.STR),
+        Col("K", "promo_filter", FieldType.STR),
+        Col("L", "conditions", FieldType.STR_ARRAY),
+        Col("M", "expires_at", FieldType.DATETIME),
+        Col("N", "is_active", FieldType.BOOL),
+        Col("O", "partner_company_id", FieldType.STR),
     ],
 )
 
@@ -113,6 +140,7 @@ CONFIGS: dict[str, EntityConfig] = {
     "cards": CARD,
     "deposits": DEPOSIT,
     "companies": COMPANY,
+    "promos": PROMO,
 }
 
 
@@ -138,6 +166,13 @@ def _parse(value: Any, t: FieldType) -> Any:
         if text in ("0", "false", "нет", "no", ""):
             return False
         raise ValueError(f"bad boolean: {value}")
+    if t is FieldType.DATETIME:
+        if isinstance(value, datetime):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        return datetime.fromisoformat(text)
     if t is FieldType.JSON:
         if isinstance(value, (dict, list)):
             return value

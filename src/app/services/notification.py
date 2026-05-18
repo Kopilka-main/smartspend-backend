@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.models.notification import Notification
 from src.app.models.notification_message import NotificationMessage
 from src.app.models.user import User
 from src.app.repositories.notification import NotificationRepository
@@ -12,6 +13,37 @@ from src.app.schemas.notification import (
     NotificationResponse,
 )
 from src.app.schemas.user import AuthorInfo
+
+
+def queue_notification(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    type: str,
+    title: str,
+    description: str,
+    author_id: uuid.UUID | None = None,
+    payload: str | None = None,
+    set_id: str | None = None,
+    set_title: str | None = None,
+    article_id: str | None = None,
+    article_title: str | None = None,
+) -> None:
+    """Поставить уведомление в текущую сессию. Коммит — за вызывающим кодом."""
+    session.add(
+        Notification(
+            user_id=user_id,
+            type=type,
+            title=title,
+            description=description,
+            author_id=author_id,
+            payload=payload,
+            set_id=set_id,
+            set_title=set_title,
+            article_id=article_id,
+            article_title=article_title,
+        )
+    )
 
 
 def _build_author(user: User) -> AuthorInfo:

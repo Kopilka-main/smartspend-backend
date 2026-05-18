@@ -39,6 +39,7 @@ from src.app.schemas.article import (
 )
 from src.app.schemas.reaction import ReactionCount
 from src.app.schemas.user import AuthorInfo
+from src.app.services.notification import queue_notification
 from src.app.services.upload import UploadService
 
 
@@ -322,6 +323,7 @@ class ArticleService:
                 )
             )
             resp.is_bookmarked = bm.scalar_one_or_none() is not None
+            resp.attached_set_ids = await self._repo.get_attached_set_ids(article_id, user_id)
         return resp
 
     async def create_article(self, user: User, data: ArticleCreate) -> ArticleResponse:
@@ -525,6 +527,42 @@ class ArticleService:
             reply_to_id=data.reply_to_id,
         )
         comment = await self._repo.add_comment(comment)
+
+        snippet = data.text.strip()
+        if len(snippet) > 80:
+            snippet = snippet[:80].rstrip() + "…"
+
+        # уведомление автору статьи о новом комментарии
+        if a.author_id and a.author_id != user.id:
+            queue_notification(
+                self._session,
+                user_id=a.author_id,
+                type="comment",
+                title="Новый комментарий",
+                description=f"{user.display_name} к статье «{a.title}»: «{snippet}»",
+                author_id=user.id,
+                article_id=a.id,
+                article_title=a.title,
+                payload=f"/articles/{a.id}?comment={comment.id}",
+            )
+        # уведомление автору комментария об ответе на него
+        reply_target_id = data.reply_to_id or data.parent_id
+        if reply_target_id:
+            rt = await self._session.get(ArticleComment, reply_target_id)
+            if rt and rt.user_id and rt.user_id not in (user.id, a.author_id):
+                thread_id = rt.parent_id or rt.id
+                queue_notification(
+                    self._session,
+                    user_id=rt.user_id,
+                    type="reply",
+                    title="Ответ на комментарий",
+                    description=f"{user.display_name} ответил на ваш комментарий: «{snippet}»",
+                    author_id=user.id,
+                    article_id=a.id,
+                    article_title=a.title,
+                    payload=f"/articles/{a.id}?comment={thread_id}",
+                )
+
         await self._session.commit()
 
         reply_to = None
@@ -559,22 +597,50 @@ class ArticleService:
         a = await self._repo.get_by_id(article_id)
         if a is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-        if a.author_id != user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your article")
-        stmt = sa_update(Article).where(Article.id == article_id).values(linked_set_id=data.set_id)
-        await self._session.execute(stmt)
-        link = ArticleSetLink(
-            article_id=article_id,
-            user_id=user.id,
-            set_id=data.set_id,
-        )
-        with contextlib.suppress(Exception):
-            await self._repo.link_to_set(link)
+        # Прикреплять можно свою статью (любого статуса) либо чужую опубликованную
+        if a.author_id != user.id and a.status != "published":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Article is not available")
+        # Набор должен существовать и принадлежать пользователю (личный или дочерний)
+        target_set = await self._session.get(Set, data.set_id)
+        if target_set is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Set not found")
+        if target_set.author_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your set")
+        # Идемпотентно: повторное прикрепление не ошибка
+        existing = await self._repo.get_set_link(article_id, user.id, data.set_id)
+        if existing is None:
+            link = ArticleSetLink(article_id=article_id, user_id=user.id, set_id=data.set_id)
+            with contextlib.suppress(Exception):
+                await self._repo.link_to_set(link)
         await self._session.commit()
 
-    async def unlink_from_set(self, article_id: str, user: User) -> None:
-        await self._repo.unlink_from_set(article_id, user.id)
+    async def unlink_from_set(self, article_id: str, user: User, set_id: str | None = None) -> None:
+        await self._repo.unlink_from_set(article_id, user.id, set_id)
         await self._session.commit()
+
+    async def list_set_articles(self, set_id: str, user_id=None) -> list[ArticleListItem]:
+        """Статьи набора: глобально привязанные + личные привязки пользователя."""
+        global_articles, _ = await self._repo.list_published(linked_set_id=set_id, limit=100, offset=0)
+        seen = {a.id for a in global_articles}
+        articles = list(global_articles)
+        if user_id is not None:
+            link_ids = await self._repo.list_set_link_article_ids(set_id, user_id)
+            extra_ids = [aid for aid in link_ids if aid not in seen]
+            if extra_ids:
+                articles.extend(await self._repo.list_by_ids(extra_ids))
+        sets_map, sets_raw, cats_map = await self._resolve_sets_and_cats(articles)
+        from src.app.repositories.reaction import ReactionRepository
+
+        reaction_repo = ReactionRepository(self._session)
+        reactions_map = await reaction_repo.count_grouped_bulk("article", [a.id for a in articles])
+        result = []
+        for a in articles:
+            st, cn, ls, sl = await self._enrich_article(a, sets_map, sets_raw, cats_map)
+            rr = [ReactionCount(emoji=e, count=c) for e, c in reactions_map.get(a.id, [])]
+            result.append(
+                _article_to_list_item(a, set_title=st, category_name=cn, linked_sets=ls, set_link=sl, reactions=rr)
+            )
+        return result
 
     async def add_photo(self, article_id: str, user: User, file: UploadFile) -> ArticlePhotoResponse:
         a = await self._repo.get_by_id(article_id)
