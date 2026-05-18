@@ -37,7 +37,7 @@ async def list_cards(
     condition: str | None = Query(None),
     scope: str = Query("all"),
     sort: str = Query("cashback"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     user_id = current_user.id if current_user else None

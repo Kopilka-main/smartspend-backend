@@ -26,7 +26,7 @@ async def list_deposits(
     sort: str = Query("bank"),
     amount: float | None = Query(None, ge=0),
     months: int | None = Query(None, ge=1),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     service = DepositService(session)
@@ -92,7 +92,7 @@ async def list_deposit_comments(
     deposit_id: str,
     session: Session,
     sort: str = Query("new"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     service = DepositService(session)
