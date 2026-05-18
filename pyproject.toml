@@ -60,7 +60,9 @@ select = [
 ignore = [
     "E501",    # line length handled by formatter
     "B008",    # do not perform function calls in argument defaults (FastAPI Depends)
-    "RUF001",  # ambiguous unicode chars (we use Cyrillic strings intentionally)
+    "RUF001",  # ambiguous unicode chars in strings (we use Cyrillic intentionally)
+    "RUF002",  # ambiguous unicode chars in docstrings (Cyrillic)
+    "RUF003",  # ambiguous unicode chars in comments (Cyrillic)
     "RUF012",  # mutable class defaults (Pydantic models use list[] = [] by design)
     "UP042",   # str+Enum → StrEnum (keep compat with sqlalchemy column types)
     "UP046",   # Generic subclass (Pydantic needs Generic[T] pattern)
