@@ -80,9 +80,7 @@ class CardService:
         if conditions:
             # карта подходит, если её требования — подмножество выбранных фильтров;
             # карты без условий (NULL/пустой массив) проходят при любом наборе
-            query = query.where(
-                or_(Card.conditions.is_(None), Card.conditions.contained_by(conditions))
-            )
+            query = query.where(or_(Card.conditions.is_(None), Card.conditions.contained_by(conditions)))
         if scope == "mine" and user_id:
             sub = select(UserCompany.company_id).where(UserCompany.user_id == user_id)
             bank_sub = select(Company.name).where(Company.id.in_(sub))

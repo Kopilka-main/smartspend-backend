@@ -339,9 +339,7 @@ class EnvelopeService:
                 detail="Set not in your profile",
             )
         # Пауза конверта — независимый статус, на позиции инвентаря не влияет
-        await self._session.execute(
-            sa_update(Envelope).where(Envelope.id == envelope.id).values(paused=paused)
-        )
+        await self._session.execute(sa_update(Envelope).where(Envelope.id == envelope.id).values(paused=paused))
         await self._session.commit()
 
     async def update_scale(self, user: User, set_id: str, scale) -> EnvelopeResponse:

@@ -111,9 +111,7 @@ class DepositService:
             if "withdrawal" in liquidity or "both" in liquidity:
                 query = query.where(Deposit.withdrawal.is_(True))
         if conditions:
-            query = query.where(
-                or_(Deposit.conditions.is_(None), Deposit.conditions.contained_by(conditions))
-            )
+            query = query.where(or_(Deposit.conditions.is_(None), Deposit.conditions.contained_by(conditions)))
 
         count_q = query.with_only_columns(sa_func.count(Deposit.id))
         total = (await self._session.execute(count_q)).scalar() or 0
@@ -249,9 +247,7 @@ class DepositService:
         if freq:
             query = query.where(Deposit.freq.in_(freq))
         if conditions:
-            query = query.where(
-                or_(Deposit.conditions.is_(None), Deposit.conditions.contained_by(conditions))
-            )
+            query = query.where(or_(Deposit.conditions.is_(None), Deposit.conditions.contained_by(conditions)))
         if liquidity:
             if "replenishment" in liquidity or "both" in liquidity:
                 query = query.where(Deposit.replenishment.is_(True))
