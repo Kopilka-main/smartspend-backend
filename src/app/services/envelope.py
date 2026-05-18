@@ -471,9 +471,7 @@ class EnvelopeService:
                 total += int((bp * qty) / (py * 12))
 
         await self._session.execute(
-            sa_update(Envelope)
-            .where(Envelope.id == envelope.id)
-            .values(amount=total, items_count=len(s.items or []))
+            sa_update(Envelope).where(Envelope.id == envelope.id).values(amount=total, items_count=len(s.items or []))
         )
         await self._session.commit()
         await self._session.refresh(envelope)
