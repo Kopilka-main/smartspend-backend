@@ -49,4 +49,3 @@ format:
 ```
 
 JSON camelCase.
-
