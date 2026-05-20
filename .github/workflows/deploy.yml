@@ -2,12 +2,12 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [staging, production]
   pull_request:
-    branches: [main]
+    branches: [staging, production]
 
 concurrency:
-  group: deploy-production
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -50,11 +50,16 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
+    env:
+      DEPLOY_PATH: ${{ github.ref_name == 'production' && '/project/Smartspend/PROD/back' || '/project/Smartspend/staging/back' }}
+      COMPOSE_FILE: ${{ github.ref_name == 'production' && 'docker-compose.prod.yml' || 'docker-compose.yml' }}
+      HEALTH_PORT: ${{ github.ref_name == 'production' && '8101' || '8001' }}
+      BRANCH: ${{ github.ref_name }}
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -62,19 +67,20 @@ jobs:
           host: kopilka.i20h.ru
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_PATH,COMPOSE_FILE,HEALTH_PORT,BRANCH
           script: |
             set -euo pipefail
-            cd /project/smartspend/back
+            cd "$DEPLOY_PATH"
 
             PREVIOUS_SHA=$(git rev-parse HEAD)
-            git fetch --prune origin main
-            git reset --hard origin/main
+            git fetch --prune origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
             NEW_SHA=$(git rev-parse HEAD)
             echo "Deploying $PREVIOUS_SHA -> $NEW_SHA"
 
             smoke_test() {
               for attempt in 1 2 3 4 5; do
-                if curl -fsS --max-time 5 http://127.0.0.1:8001/health/ready >/dev/null; then
+                if curl -fsS --max-time 5 "http://127.0.0.1:${HEALTH_PORT}/health/ready" >/dev/null; then
                   echo "Smoke test OK (attempt $attempt)"
                   return 0
                 fi
@@ -83,17 +89,17 @@ jobs:
               return 1
             }
 
-            if docker compose up -d --build --wait --wait-timeout 180 && smoke_test; then
+            if docker compose -f "$COMPOSE_FILE" up -d --build --wait --wait-timeout 180 && smoke_test; then
               echo "Deploy complete: $(date), SHA=$NEW_SHA"
               exit 0
             fi
 
             echo "!!! Deploy FAILED on $NEW_SHA, rolling back code to $PREVIOUS_SHA" >&2
             echo "!!! WARNING: DB migrations (if any) are NOT rolled back automatically" >&2
-            docker compose logs --tail=200 smartspend-migrations smartspend-api || true
+            docker compose -f "$COMPOSE_FILE" logs --tail=200 smartspend-migrations smartspend-api || true
 
             git reset --hard "$PREVIOUS_SHA"
-            if docker compose up -d --build --wait --wait-timeout 180 && smoke_test; then
+            if docker compose -f "$COMPOSE_FILE" up -d --build --wait --wait-timeout 180 && smoke_test; then
               echo "Rolled back to $PREVIOUS_SHA, but original deploy $NEW_SHA failed" >&2
             else
               echo "!!! Rollback ALSO failed, manual intervention required" >&2
@@ -102,7 +108,7 @@ jobs:
 
   notify:
     needs: [test, deploy]
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled()
+    if: always() && github.event_name == 'push' && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -115,11 +121,13 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           TEST_RESULT: ${{ needs.test.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
+          ENVIRONMENT: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           SUBJECT=$(printf '%s\n' "$COMMIT_MSG" | head -n 1 | cut -c 1-200)
           SUBJECT_ESCAPED=$(printf '%s' "$SUBJECT" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          ENV_LABEL=$([ "$ENVIRONMENT" = "production" ] && echo "🚀 PROD" || echo "🧪 staging")
 
           if [ "$TEST_RESULT" = "failure" ]; then
             STATUS="🚨 <b>Tests FAILED</b> — deploy skipped"
@@ -135,9 +143,10 @@ jobs:
             exit 0
           fi
 
-          TEXT="${STATUS}
+          TEXT="${STATUS} [${ENV_LABEL}]
 
           <b>Repo:</b> <code>${GITHUB_REPOSITORY}</code>
+          <b>Branch:</b> <code>${ENVIRONMENT}</code>
           <b>Commit:</b> <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${SHORT_SHA}</a> — ${SUBJECT_ESCAPED}
           <b>Author:</b> ${GITHUB_ACTOR}
           <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">${LINK_LABEL}</a>"
