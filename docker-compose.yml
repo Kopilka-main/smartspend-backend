@@ -1,3 +1,5 @@
+name: smartspend-staging
+
 services:
   smartspend-api:
     build: .
